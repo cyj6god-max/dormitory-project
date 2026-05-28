@@ -4,6 +4,44 @@
 
 let isLoading = false;
 
+// ── 처음으로 돌아가기 (웰컴 메시지 추가) ────────────────
+function sendWelcomeMessage() {
+  // 모든 이전 빠른 칩 숨기기
+  const allChips = document.querySelectorAll(".quick-chips");
+  allChips.forEach(c => c.style.display = "none");
+
+  const container = document.getElementById("chat-messages");
+  if (!container) return;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "message bot-message";
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar bot-avatar";
+  avatar.textContent = "🏢";
+
+  const bubble = document.createElement("div");
+  bubble.className = "message-bubble";
+
+  bubble.innerHTML = `
+    <p>안녕하세요! <strong>기숙사 안내 챗봇</strong>입니다 😊</p>
+    <p>입퇴실, 규정, 시설 관리 등 궁금한 내용을 아래에 자유롭게 입력해 주세요.</p>
+    <div class="quick-chips">
+      <button class="chip" onclick="sendQuick('외박 신청은 어떻게 하나요?')" id="chip-1">🏠 외박 신청</button>
+      <button class="chip" onclick="sendQuick('관리자 근무 시간이 어떻게 되나요?')" id="chip-2">🕐 관리 시간</button>
+      <button class="chip" onclick="sendQuick('기숙사 벌점 기준이 뭐야?')" id="chip-3">⚠️ 벌점 기준</button>
+      <button class="chip" onclick="sendQuick('퇴실 청소 기준 알려줘')" id="chip-4">🚿 퇴실 청소</button>
+      <button class="chip" onclick="sendQuick('공용 세탁기 고장 신고 어떻게 해?')" id="chip-5">🧺 세탁기 고장</button>
+      <button class="chip" onclick="sendQuick('배달 음식 수령 어디서 해?')" id="chip-6">🛵 배달 수령</button>
+    </div>
+  `;
+
+  wrapper.appendChild(avatar);
+  wrapper.appendChild(bubble);
+  container.appendChild(wrapper);
+  container.scrollTop = container.scrollHeight;
+}
+
 // ── 빠른 질문 칩 ──────────────────────────────
 function sendQuick(text) {
   const input = document.getElementById("user-input");
@@ -41,9 +79,9 @@ async function sendMessage() {
   input.value = "";
   input.style.height = "auto";
 
-  // 빠른 칩 숨기기
-  const chips = document.querySelector(".quick-chips");
-  if (chips) chips.style.display = "none";
+  // 모든 빠른 칩 숨기기
+  const allChips = document.querySelectorAll(".quick-chips");
+  allChips.forEach(c => c.style.display = "none");
 
   // 사용자 메시지 추가
   appendMessage("user", text);
@@ -99,16 +137,26 @@ function appendMessage(role, text, references, isError) {
   // 태그 파싱 (예: "태그: #생활수칙 #벌점")
   const tagRegex = /태그\s*:\s*(#[^\n\r]+)/i;
   const match = text.match(tagRegex);
-  if (match) {
-    cleanText = text.replace(tagRegex, "").trim();
-    const tagsStr = match[1];
-    const tagsList = tagsStr.split(/\s+/).filter(t => t.startsWith("#"));
+  
+  if (role === "bot") {
+    let tagsList = [];
+    if (match) {
+      cleanText = text.replace(tagRegex, "").trim();
+      const tagsStr = match[1];
+      tagsList = tagsStr.split(/\s+/).filter(t => t.startsWith("#"));
+    }
     
+    // 항상 '#처음으로' 태그를 추가합니다.
+    tagsList.push("#처음으로");
+
     tagsHTML = `<div class="msg-tags">`;
     tagsList.forEach(tag => {
-      // 태그 클릭 시 # 제거하고 검색어로 전송
-      const searchText = tag.replace(/^#/, '');
-      tagsHTML += `<span class="tag-chip" title="${searchText} 관련 질문 검색" style="cursor:pointer;" onclick="sendQuick('${searchText.replace(/'/g, "\\'")} 관련 안내 알려줘')">${tag}</span>`;
+      if (tag === "#처음으로") {
+        tagsHTML += `<span class="tag-chip home-tag" title="처음으로 돌아가기" style="cursor:pointer;" onclick="sendWelcomeMessage()">${tag}</span>`;
+      } else {
+        const searchText = tag.replace(/^#/, '');
+        tagsHTML += `<span class="tag-chip" title="${searchText} 관련 질문 검색" style="cursor:pointer;" onclick="sendQuick('${searchText.replace(/'/g, "\\'")} 관련 안내 알려줘')">${tag}</span>`;
+      }
     });
     tagsHTML += `</div>`;
   }

@@ -1039,6 +1039,19 @@ body:not(.admin-body) {
   transform: translateY(-1px);
 }
 
+.tag-chip.home-tag {
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: #ffffff;
+}
+
+.tag-chip.home-tag:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
 /* ──────────────────────────────────────────
    2초 스플래시 시작 화면 스타일 (채팅창 내부 배치)
    ────────────────────────────────────────── */
