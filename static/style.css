@@ -65,6 +65,8 @@ body:not(.admin-body) {
   background: var(--bg-surface);
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
 }
 
 /* ── 공통 헤더 ── */
@@ -1035,6 +1037,75 @@ body:not(.admin-body) {
   color: white;
   border-color: var(--accent);
   transform: translateY(-1px);
+}
+
+/* ──────────────────────────────────────────
+   2초 스플래시 시작 화면 스타일 (채팅창 내부 배치)
+   ────────────────────────────────────────── */
+.splash-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-surface);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  transition: opacity 0.5s ease-out, visibility 0.5s;
+  opacity: 1;
+  visibility: visible;
+}
+
+.splash-screen.fade-out {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.splash-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 이미지 등록 전 로드될 고유 폴백 스타일 */
+.splash-fallback {
+  text-align: center;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  animation: splashFadeIn 0.8s ease-out;
+}
+
+.splash-logo {
+  font-size: 55px;
+  animation: splashBounce 1.8s infinite ease-in-out;
+}
+
+.splash-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 4px;
+}
+
+.splash-loading {
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+@keyframes splashFadeIn {
+  from { opacity: 0; transform: translateY(15px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes splashBounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
 }
 
 
