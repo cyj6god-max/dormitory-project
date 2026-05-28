@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="/static/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     /* 탭 메뉴 스타일 */
     .admin-tabs {
@@ -181,10 +182,28 @@
     <section class="admin-card" id="stats-section">
       <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
         <h2 class="card-title" style="margin: 0;">📊 챗봇 질문 통계 (최근 3개월)</h2>
+        <a href="/api/logs/download" class="admin-btn confirm-btn" style="background: #2b6cb0; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">📥 이력 다운로드</a>
       </div>
-      <p class="card-desc">사용자들이 기숙사 챗봇에 질문한 내역의 일별 통계입니다.</p>
+      <p class="card-desc">사용자들이 기숙사 챗봇에 질문한 내역의 일별 추이와 카테고리 분포입니다.</p>
 
-      <div class="stats-table-wrapper" style="margin-top: 15px; max-height: 250px; overflow-y: auto;">
+      <!-- 차트 영역 -->
+      <div id="charts-area" style="display: none;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 16px;">
+          <!-- 꺾은선 차트 -->
+          <div style="background: #f8fafc; border-radius: 12px; padding: 16px;">
+            <p style="font-size: 13px; font-weight: 600; color: #4a5568; margin-bottom: 12px;">📈 일별 질문 건수 추이</p>
+            <canvas id="lineChart" height="200"></canvas>
+          </div>
+          <!-- 도넛 차트 -->
+          <div style="background: #f8fafc; border-radius: 12px; padding: 16px;">
+            <p style="font-size: 13px; font-weight: 600; color: #4a5568; margin-bottom: 12px;">🍩 카테고리별 질문 비율</p>
+            <canvas id="doughnutChart" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 일별 통계 테이블 -->
+      <div class="stats-table-wrapper" style="margin-top: 20px; max-height: 220px; overflow-y: auto;">
         <table class="qa-table" id="stats-table">
           <thead>
             <tr>

@@ -106,7 +106,9 @@ function appendMessage(role, text, references, isError) {
     
     tagsHTML = `<div class="msg-tags">`;
     tagsList.forEach(tag => {
-      tagsHTML += `<span class="tag-chip">${tag}</span>`;
+      // 태그 클릭 시 # 제거하고 검색어로 전송
+      const searchText = tag.replace(/^#/, '');
+      tagsHTML += `<span class="tag-chip" title="${searchText} 관련 질문 검색" style="cursor:pointer;" onclick="sendQuick('${searchText.replace(/'/g, "\\'")} 관련 안내 알려줘')">${tag}</span>`;
     });
     tagsHTML += `</div>`;
   }
@@ -259,7 +261,10 @@ async function deleteQa(buttonEl, rowIndex) {
   }
 }
 
-// 3. 질문 일별 통계 로드
+// 3. 질문 일별 통계 로드 + Chart.js 차트 렌더링
+let _lineChart = null;
+let _doughnutChart = null;
+
 async function loadDailyStats() {
   const tableBody = document.getElementById("stats-table-body");
   if (!tableBody) return;
@@ -274,21 +279,99 @@ async function loadDailyStats() {
     }
     
     const statsList = data.data || [];
+    const catList   = data.categories || [];
+
+    // ── 테이블 렌더링 (최신순) ──
     if (statsList.length === 0) {
       tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: #718096; padding: 20px;">📭 최근 3개월간 기록된 질문 내역이 없습니다.</td></tr>`;
-      return;
-    }
-    
-    let html = "";
-    statsList.forEach(item => {
-      html += `
-        <tr>
+    } else {
+      let html = "";
+      // 날짜 역순으로 테이블에 표시
+      [...statsList].reverse().forEach(item => {
+        html += `<tr>
           <td style="font-weight: 500; color: #2d3748;">📅 ${item.date}</td>
           <td style="text-align: center; font-weight: bold; color: #2b6cb0;">${item.count} 회</td>
-        </tr>
-      `;
-    });
-    tableBody.innerHTML = html;
+        </tr>`;
+      });
+      tableBody.innerHTML = html;
+    }
+
+    // ── Chart.js 렌더링 ──
+    if (statsList.length > 0 || catList.length > 0) {
+      document.getElementById("charts-area").style.display = "block";
+
+      // 차트 색상 팔레트
+      const palette = [
+        "#ff748c","#4a9eff","#48bb78","#ed8936","#9f7aea",
+        "#38b2ac","#fc8181","#63b3ed","#68d391","#f6ad55"
+      ];
+
+      // ── 꺾은선 차트 (일별 추이) ──
+      const lineCtx = document.getElementById("lineChart")?.getContext("2d");
+      if (lineCtx) {
+        if (_lineChart) _lineChart.destroy();
+        _lineChart = new Chart(lineCtx, {
+          type: "line",
+          data: {
+            labels: statsList.map(d => d.date.slice(5)), // MM-DD만 표시
+            datasets: [{
+              label: "질문 건수",
+              data: statsList.map(d => d.count),
+              borderColor: "#ff748c",
+              backgroundColor: "rgba(255,116,140,0.12)",
+              borderWidth: 2.5,
+              pointBackgroundColor: "#ff748c",
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              fill: true,
+              tension: 0.4
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y}건` } }
+            },
+            scales: {
+              x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+              y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } } }
+            }
+          }
+        });
+      }
+
+      // ── 도넛 차트 (카테고리별) ──
+      const doughCtx = document.getElementById("doughnutChart")?.getContext("2d");
+      if (doughCtx && catList.length > 0) {
+        if (_doughnutChart) _doughnutChart.destroy();
+        _doughnutChart = new Chart(doughCtx, {
+          type: "doughnut",
+          data: {
+            labels: catList.map(c => c.category),
+            datasets: [{
+              data: catList.map(c => c.count),
+              backgroundColor: palette.slice(0, catList.length),
+              borderWidth: 2,
+              borderColor: "#fff",
+              hoverOffset: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            cutout: "62%",
+            plugins: {
+              legend: {
+                position: "right",
+                labels: { font: { size: 11 }, boxWidth: 12, padding: 12 }
+              },
+              tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}건` } }
+            }
+          }
+        });
+      }
+    }
+
   } catch (err) {
     tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: #c53030; padding: 20px;">❌ 네트워크 오류로 통계를 가져오지 못했습니다.</td></tr>`;
   }

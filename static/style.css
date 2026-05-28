@@ -860,9 +860,10 @@ body:not(.admin-body) {
   padding: 3px 10px;
   border-radius: 20px;
   transition: all var(--t);
-  cursor: default;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
+  user-select: none;
 }
 
 .tag-chip:hover {

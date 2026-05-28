@@ -70,7 +70,7 @@ def save_logs(logs):
     except Exception as e:
         print(f"로그 저장 실패 (Vercel 환경일 수 있음): {e}")
 
-def write_chat_log(query, answer, found):
+def write_chat_log(query, answer, category, found):
     logs = load_logs()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
@@ -78,6 +78,7 @@ def write_chat_log(query, answer, found):
         "timestamp": now_str,
         "query": query.strip(),
         "answer": answer.strip(),
+        "category": category,
         "found": found
     })
     
@@ -206,7 +207,7 @@ def chat():
     # 2) 관련 내용이 없으면 자료 없음 안내
     if not results:
         no_ref_answer = "적절한 답변을 찾지 못했습니다. 관리자에게 문의해 주세요. (소통폰 : 010-2629-8002)\n\n태그: #기타 #문의사항"
-        write_chat_log(user_message, no_ref_answer, False)
+        write_chat_log(user_message, no_ref_answer, "기타", False)
         return jsonify({
             "answer": no_ref_answer,
             "references": [],
@@ -217,6 +218,9 @@ def chat():
     context_text = ""
     for i, r in enumerate(results, 1):
         context_text += f"\n[자료 {i}] 카테고리: {r['category']}\n질문: {r['question']}\n답변: {r['answer']}\n"
+
+    # 첫 번째 매칭 자료의 카테고리 (로그 기록용)
+    matched_category = results[0].get("category", "기타") if results else "기타"
 
     system_prompt = """당신은 기숙사 거주자의 질문에 답변하는 도우미입니다.
 반드시 아래 규칙을 따르세요:
@@ -253,7 +257,7 @@ def chat():
         return jsonify({"error": f"AI 서버 오류: {str(e)}"}), 500
 
     references = [{"category": r["category"], "question": r["question"]} for r in results]
-    write_chat_log(user_message, answer, True)
+    write_chat_log(user_message, answer, matched_category, True)
     return jsonify({"answer": answer, "references": references, "found": True})
 
 
@@ -514,18 +518,24 @@ def get_daily_logs():
     logs = load_logs()
     
     daily_counts = {}
+    category_counts = {}
     for log in logs:
         try:
             date_str = log["timestamp"].split(" ")[0]
             daily_counts[date_str] = daily_counts.get(date_str, 0) + 1
+            cat = log.get("category", "기타") or "기타"
+            category_counts[cat] = category_counts.get(cat, 0) + 1
         except Exception:
             continue
             
     sorted_daily = []
-    for d in sorted(daily_counts.keys(), reverse=True):
+    for d in sorted(daily_counts.keys()):
         sorted_daily.append({"date": d, "count": daily_counts[d]})
+
+    category_data = [{"category": k, "count": v} for k, v in
+                     sorted(category_counts.items(), key=lambda x: -x[1])]
         
-    return jsonify({"success": True, "data": sorted_daily})
+    return jsonify({"success": True, "data": sorted_daily, "categories": category_data})
 
 @app.route("/api/logs/download", methods=["GET"])
 def download_logs_excel():
@@ -536,37 +546,43 @@ def download_logs_excel():
     
     wb = Workbook()
     ws = wb.active
-    ws.title = "질문 내역 로그"
+    ws.title = "질문 이력 (3개월)"
     
-    headers = ["질문 일시", "사용자 질문", "챗봇 답변", "자료 매칭 여부"]
+    headers = ["번호", "질문일시", "카테고리", "질문", "답변", "적합성 여부"]
     ws.append(headers)
     
-    for log in reversed(logs):
-        ws.append([
-            log.get("timestamp", ""),
-            log.get("query", ""),
-            log.get("answer", ""),
-            "예" if log.get("found", False) else "아니오"
-        ])
+    for idx, log in enumerate(reversed(logs), start=1):
+        # 답변에서 태그 줄 제거 후 저장
+        raw_answer = log.get("answer", "")
+        clean_answer = raw_answer
+        import re as _re
+        clean_answer = _re.sub(r'\n*태그\s*:.*', '', clean_answer, flags=_re.IGNORECASE).strip()
         
-    for col in ws.columns:
-        max_len = 0
-        for cell in col:
-            # None 방지 및 한글/영문 길이 보정
-            val = str(cell.value or '')
-            max_len = max(max_len, len(val))
-        col_letter = get_column_letter(col[0].column)
-        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+        ws.append([
+            idx,
+            log.get("timestamp", ""),
+            log.get("category", "기타") or "기타",
+            log.get("query", ""),
+            clean_answer,
+            "적합" if log.get("found", False) else "부적합"
+        ])
+
+    # 열 너비 자동 조정
+    col_widths = [8, 20, 12, 40, 60, 10]
+    for i, width in enumerate(col_widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = width
         
     excel_stream = io.BytesIO()
     wb.save(excel_stream)
     excel_stream.seek(0)
     
+    from datetime import date
+    today_str = date.today().strftime("%Y%m%d")
     return send_file(
         excel_stream,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         as_attachment=True,
-        download_name="chat_history_logs.xlsx"
+        download_name=f"chatbot_log_{today_str}.xlsx"
     )
 
 
