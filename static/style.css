@@ -112,6 +112,7 @@ body:not(.admin-body) {
   font-size: 12px;
   color: var(--green);
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .status-dot {
@@ -140,6 +141,7 @@ body:not(.admin-body) {
   text-decoration: none;
   cursor: pointer;
   transition: background var(--t), color var(--t);
+  white-space: nowrap;
 }
 
 .admin-btn:hover {
@@ -552,6 +554,61 @@ body:not(.admin-body) {
   .admin-main { padding: 16px; gap: 16px; }
   .message.user-message { max-width: 95%; }
   .message.bot-message  { max-width: 100%; }
+
+  /* 챗봇 메인 헤더 반응형 */
+  .chat-header {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+  .chat-header .header-left {
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+  .chat-header .header-icon {
+    font-size: 22px;
+  }
+  .chat-header .header-title {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .chat-header .title-sub-text {
+    display: none; /* 모바일에서 긴 부제목 텍스트 숨기기 */
+  }
+  .chat-header .header-sub {
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chat-header .header-right {
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .chat-header .status-badge {
+    font-size: 11px;
+    gap: 4px;
+  }
+  .chat-header .admin-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  /* 챗봇 입력창 반응형 */
+  .chat-input-area {
+    padding: 10px 14px 14px;
+  }
+  .input-wrapper {
+    padding: 8px 8px 8px 14px;
+    gap: 8px;
+  }
+  .chat-input {
+    font-size: 13px;
+  }
+  .send-btn {
+    width: 34px;
+    height: 34px;
+  }
 
   /* 관리자 헤더 반응형 */
   .admin-top-bar {
