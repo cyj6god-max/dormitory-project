@@ -263,35 +263,133 @@ async function deleteQa(buttonEl, rowIndex) {
 
 // 3. 질문 일별 통계 로드 + Chart.js 차트 렌더링
 let _lineChart = null;
-let _doughnutChart = null;
+let _doughnutChart = null; // Chart.js 객체 저장 (카테고리 가로 막대 그래프)
 
 async function loadDailyStats() {
   const tableBody = document.getElementById("stats-table-body");
   if (!tableBody) return;
   
+  // 날짜 인풋 및 필터 처리
+  const startInput = document.getElementById("stats-start-date");
+  const endInput = document.getElementById("stats-end-date");
+  
+  if (startInput && endInput) {
+    // 값이 없을 경우 기본값으로 최근 30일 설정
+    if (!startInput.value || !endInput.value) {
+      const today = new Date();
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(today.getDate() - 30);
+      
+      startInput.value = thirtyDaysAgo.toISOString().split('T')[0];
+      endInput.value = today.toISOString().split('T')[0];
+    }
+  }
+  
+  const startDate = startInput ? startInput.value : "";
+  const endDate = endInput ? endInput.value : "";
+  
+  if (startDate && endDate) {
+    const sDiff = new Date(startDate);
+    const eDiff = new Date(endDate);
+    const diffDays = Math.ceil(Math.abs(eDiff - sDiff) / (1000 * 60 * 60 * 24));
+    if (diffDays > 92) {
+      alert("❌ 조회 기간은 최대 3개월(92일)까지 설정할 수 있습니다.");
+      return;
+    }
+    if (eDiff < sDiff) {
+      alert("❌ 시작일은 종료일보다 이전 날짜여야 합니다.");
+      return;
+    }
+  }
+  
   try {
-    const res = await fetch("/api/logs/daily");
+    const url = `/api/logs/daily?start_date=${startDate}&end_date=${endDate}`;
+    const res = await fetch(url);
     const data = await res.json();
     
     if (!res.ok || !data.success) {
-      tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: #c53030; padding: 20px;">❌ 데이터를 불러오지 못했습니다.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #c53030; padding: 20px;">❌ 데이터를 불러오지 못했습니다: ${data.error || "알 수 없는 오류"}</td></tr>`;
       return;
     }
     
     const statsList = data.data || [];
     const catList   = data.categories || [];
+    
+    // 상단 '전체 이력 다운로드' 버튼의 링크도 필터 일정에 맞게 동적 업데이트
+    const globalDl = document.getElementById("global-download-btn");
+    if (globalDl) {
+      globalDl.href = `/api/logs/download?start_date=${startDate}&end_date=${endDate}`;
+    }
 
     // ── 테이블 렌더링 (최신순) ──
     if (statsList.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: #718096; padding: 20px;">📭 최근 3개월간 기록된 질문 내역이 없습니다.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #718096; padding: 20px;">📭 선택한 기간에 기록된 질문 내역이 없습니다.</td></tr>`;
     } else {
       let html = "";
       // 날짜 역순으로 테이블에 표시
-      [...statsList].reverse().forEach(item => {
-        html += `<tr>
-          <td style="font-weight: 500; color: #2d3748;">📅 ${item.date}</td>
-          <td style="text-align: center; font-weight: bold; color: #2b6cb0;">${item.count} 회</td>
-        </tr>`;
+      [...statsList].reverse().forEach((item) => {
+        const dateId = item.date;
+        
+        // 상세 질문 행 렌더링
+        let questionsHtml = "";
+        if (item.questions && item.questions.length > 0) {
+          questionsHtml = `
+            <tr id="entries-${dateId}" style="display: none; background: #fff5f6;">
+              <td colspan="4" style="padding: 15px 20px; border-bottom: 1px solid var(--border);">
+                <div style="max-height: 250px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: white; box-shadow: inset 0 2px 8px rgba(0,0,0,0.05);">
+                  <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                    <thead>
+                      <tr style="background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1;">
+                        <th style="padding: 10px; width: 85px; color: var(--text-secondary); font-weight: 600;">⏰ 시간</th>
+                        <th style="padding: 10px; width: 100px; color: var(--text-secondary); font-weight: 600;">🏷️ 카테고리</th>
+                        <th style="padding: 10px; color: var(--text-secondary); font-weight: 600;">💬 질문</th>
+                        <th style="padding: 10px; color: var(--text-secondary); font-weight: 600;">🤖 답변</th>
+                        <th style="padding: 10px; width: 60px; text-align: center; color: var(--text-secondary); font-weight: 600;">결과</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${item.questions.map(q => {
+                        const timeStr = q.timestamp.split(" ")[1];
+                        const foundBadge = q.found 
+                          ? `<span style="color: #3fb950; font-weight: 600; background: rgba(63,185,80,0.12); padding: 2px 6px; border-radius: 4px; font-size: 11px;">적합</span>` 
+                          : `<span style="color: #ff5c5c; font-weight: 600; background: rgba(255,92,92,0.12); padding: 2px 6px; border-radius: 4px; font-size: 11px;">부적합</span>`;
+                        return `
+                          <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 10px; color: var(--text-muted); font-family: monospace;">${timeStr}</td>
+                            <td style="padding: 10px;"><span class="cat-tag" style="padding: 2px 7px; font-size: 10px;">${q.category}</span></td>
+                            <td style="padding: 10px; color: var(--text-primary); font-weight: 500; word-break: break-all;">${q.query}</td>
+                            <td style="padding: 10px; color: var(--text-secondary); word-break: break-all; max-height: 80px; overflow-y: auto;">${q.answer}</td>
+                            <td style="padding: 10px; text-align: center; vertical-align: middle;">${foundBadge}</td>
+                          </tr>
+                        `;
+                      }).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </td>
+            </tr>
+          `;
+        } else {
+          questionsHtml = `
+            <tr id="entries-${dateId}" style="display: none; background: #fff5f6;">
+              <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 15px;">상세 질문 이력이 없습니다.</td>
+            </tr>
+          `;
+        }
+
+        html += `
+          <tr id="row-${dateId}">
+            <td style="font-weight: 500; color: #2d3748; vertical-align: middle;">📅 ${item.date}</td>
+            <td style="text-align: center; font-weight: bold; color: #2b6cb0; vertical-align: middle;">${item.count} 회</td>
+            <td style="text-align: center; vertical-align: middle;">
+              <button type="button" class="admin-btn" style="padding: 4px 12px; font-size: 12px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 4px;" onclick="toggleDayEntries('${dateId}')" id="toggle-btn-${dateId}">👁️ 목록 보기</button>
+            </td>
+            <td style="text-align: center; vertical-align: middle;">
+              <a href="/api/logs/download?start_date=${item.date}&end_date=${item.date}" class="admin-btn secondary-btn" style="padding: 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 3px; text-decoration: none; border-radius: 4px;">📥 받기</a>
+            </td>
+          </tr>
+          ${questionsHtml}
+        `;
       });
       tableBody.innerHTML = html;
     }
@@ -300,20 +398,10 @@ async function loadDailyStats() {
     if (statsList.length > 0 || catList.length > 0) {
       document.getElementById("charts-area").style.display = "block";
 
-      // 차트 색상 팔레트
       const palette = [
-        "#ff748c","#4a9eff","#48bb78","#ed8936","#9f7aea",
-        "#38b2ac","#fc8181","#63b3ed","#68d391","#f6ad55"
+        "#ff748c", "#4a9eff", "#48bb78", "#ed8936", "#9f7aea",
+        "#38b2ac", "#fc8181", "#63b3ed", "#68d391", "#f6ad55"
       ];
-
-      // 색상을 어둡게 만드는 헬퍼 (3D 깊이 레이어용)
-      function _darken(hex, factor) {
-        const r = parseInt(hex.slice(1,3),16);
-        const g = parseInt(hex.slice(3,5),16);
-        const b = parseInt(hex.slice(5,7),16);
-        const d = v => Math.round(v * factor).toString(16).padStart(2,"0");
-        return `#${d(r)}${d(g)}${d(b)}`;
-      }
 
       // ── 꺾은선 차트 (일별 추이) ──
       const lineCtx = document.getElementById("lineChart")?.getContext("2d");
@@ -338,6 +426,7 @@ async function loadDailyStats() {
           },
           options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
               legend: { display: false },
               tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y}건` } }
@@ -350,100 +439,113 @@ async function loadDailyStats() {
         });
       }
 
-      // ── ECharts 3D 도넛 차트 (레이어 스태킹 기법) ──
-      const doughDom = document.getElementById("doughnut3DChart");
-      if (doughDom && catList.length > 0) {
-        if (_doughnutChart) { _doughnutChart.dispose(); }
-        _doughnutChart = echarts.init(doughDom);
-
-        const pieData = catList.map((c, i) => ({
-          value: c.count,
-          name: c.category,
-          itemStyle: { color: palette[i % palette.length] }
-        }));
-
-        // 3D 입체감을 위한 다중 레이어 (아래→위 순서)
-        const LAYERS = 10;
-        const BASE_Y  = 56;      // 기준 중심 Y (%)
-        const STEP    = 1.2;     // 레이어 간격 (%)
-        const series  = [];
-
-        // ── 깊이 레이어 (어두운 색으로 두께 표현) ──
-        for (let i = LAYERS; i >= 1; i--) {
-          series.push({
-            type: "pie",
-            radius: ["30%", "56%"],
-            center: ["42%", `${BASE_Y + i * STEP}%`],
-            animation: false,
-            label: { show: false },
-            labelLine: { show: false },
-            emphasis: { disabled: true },
-            itemStyle: { opacity: 0.18 },
-            data: pieData.map(d => ({
-              value: d.value,
-              name: d.name,
-              itemStyle: { color: _darken(d.itemStyle.color, 0.55) }
-            }))
-          });
+      // ── 가로 막대 차트 (카테고리별 분포) ──
+      const catCtx = document.getElementById("categoryChart")?.getContext("2d");
+      if (catCtx) {
+        if (_doughnutChart) {
+          if (typeof _doughnutChart.destroy === 'function') {
+            _doughnutChart.destroy();
+          }
         }
-
-        // ── 최상단 메인 파이 (밝은 색 + 그림자) ──
-        series.push({
-          type: "pie",
-          radius: ["30%", "56%"],
-          center: ["42%", `${BASE_Y}%`],
-          itemStyle: {
-            shadowBlur: 20,
-            shadowColor: "rgba(0,0,0,0.25)",
-            shadowOffsetY: 8,
-            borderWidth: 1.5,
-            borderColor: "#fff"
+        
+        _doughnutChart = new Chart(catCtx, {
+          type: "bar",
+          data: {
+            labels: catList.map(c => c.category),
+            datasets: [{
+              label: "질문 건수",
+              data: catList.map(c => c.count),
+              backgroundColor: catList.map((c, i) => palette[i % palette.length]),
+              borderRadius: 6,
+              borderWidth: 0,
+              barThickness: 16
+            }]
           },
-          label: {
-            show: true,
-            position: "outside",
-            formatter: "{b}\n{d}%",
-            fontSize: 11,
-            color: "#4a5568",
-            fontWeight: "600"
-          },
-          labelLine: { smooth: 0.4, length: 8, length2: 6 },
-          emphasis: {
-            itemStyle: { shadowBlur: 30, shadowColor: "rgba(0,0,0,0.35)" },
-            scaleSize: 6
-          },
-          data: pieData
+          options: {
+            indexAxis: 'y', // 가로 막대 그래프 설정
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x}건` } }
+            },
+            scales: {
+              x: { 
+                beginAtZero: true, 
+                ticks: { stepSize: 1, font: { size: 11 } },
+                grid: { color: "rgba(0,0,0,0.05)" }
+              },
+              y: { 
+                grid: { display: false }, 
+                ticks: { font: { size: 11, weight: '600' } } 
+              }
+            }
+          }
         });
-
-        _doughnutChart.setOption({
-          backgroundColor: "transparent",
-          tooltip: {
-            trigger: "item",
-            formatter: "{b}<br/>질문 수: <b>{c}건</b> ({d}%)",
-            backgroundColor: "rgba(255,255,255,0.95)",
-            borderColor: "#ffd0d6",
-            textStyle: { color: "#4a3a3c", fontSize: 12 }
-          },
-          legend: {
-            orient: "vertical",
-            right: "2%",
-            top: "middle",
-            itemWidth: 10,
-            itemHeight: 10,
-            itemGap: 10,
-            textStyle: { fontSize: 11, color: "#4a5568" }
-          },
-          series
-        });
-
-        // 창 크기 변경 시 차트 리사이즈
-        window.addEventListener("resize", () => _doughnutChart && _doughnutChart.resize());
       }
+    } else {
+      document.getElementById("charts-area").style.display = "none";
     }
 
   } catch (err) {
-    tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: #c53030; padding: 20px;">❌ 네트워크 오류로 통계를 가져오지 못했습니다.</td></tr>`;
+    console.error(err);
+    tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #c53030; padding: 20px;">❌ 통계를 로드하는 중 네트워크 오류가 발생했습니다.</td></tr>`;
   }
+}
+
+// ── 상세 펼치기/접기 (Accordion) ──
+function toggleDayEntries(dateId) {
+  const targetRow = document.getElementById(`entries-${dateId}`);
+  const btn = document.getElementById(`toggle-btn-${dateId}`);
+  if (!targetRow) return;
+  
+  if (targetRow.style.display === "none") {
+    targetRow.style.display = "table-row";
+    if (btn) {
+      btn.textContent = "접기";
+      btn.style.background = "var(--border)";
+      btn.style.color = "var(--text-primary)";
+    }
+  } else {
+    targetRow.style.display = "none";
+    if (btn) {
+      btn.textContent = "👁️ 목록 보기";
+      btn.style.background = "var(--bg-elevated)";
+      btn.style.color = "var(--text-secondary)";
+    }
+  }
+}
+
+// ── 필터 버튼 조작 ──
+function onSearchStats() {
+  loadDailyStats();
+}
+
+// ── 필터 선택 기간 다운로드 ──
+function onDownloadFilteredLogs() {
+  const startInput = document.getElementById("stats-start-date");
+  const endInput = document.getElementById("stats-end-date");
+  const start = startInput ? startInput.value : "";
+  const end = endInput ? endInput.value : "";
+  
+  if (!start || !end) {
+    alert("❌ 시작일과 종료일을 모두 선택해 주세요.");
+    return;
+  }
+  
+  const sDiff = new Date(start);
+  const eDiff = new Date(end);
+  const diffDays = Math.ceil(Math.abs(eDiff - sDiff) / (1000 * 60 * 60 * 24));
+  if (diffDays > 92) {
+    alert("❌ 조회 기간은 최대 3개월(92일)까지 설정할 수 있습니다.");
+    return;
+  }
+  if (eDiff < sDiff) {
+    alert("❌ 시작일은 종료일보다 이전 날짜여야 합니다.");
+    return;
+  }
+  
+  window.location.href = `/api/logs/download?start_date=${start}&end_date=${end}`;
 }
 
 // 4. Q&A 엑셀 파일 업로드

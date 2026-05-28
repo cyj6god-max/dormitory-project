@@ -68,7 +68,7 @@ def save_logs(logs):
         with open(path, "w", encoding="utf-8") as f:
             json.dump(logs, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        print(f"로그 저장 실패 (Vercel 환경일 수 있음): {e}")
+        print(f"로그 저장 실패 (PythonAnywhere 환경 권한 또는 파일 시스템 확인 필요): {e}")
 
 def write_chat_log(query, answer, category, found):
     logs = load_logs()
@@ -242,7 +242,7 @@ def chat():
 
     try:
         if not client:
-            return jsonify({"error": "OpenAI API 키가 설정되지 않았거나 올바르지 않습니다. 버셀 설정에서 환경 변수를 등록해 주세요."}), 500
+            return jsonify({"error": "OpenAI API 키가 설정되지 않았거나 올바르지 않습니다. PythonAnywhere Web 설정의 WSGI 파일 또는 .env 파일에서 환경 변수를 등록해 주세요."}), 500
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -515,44 +515,109 @@ def get_daily_logs():
     if not session.get("admin_logged_in"):
         return jsonify({"error": "로그인이 필요합니다."}), 401
         
+    start_date_str = request.args.get("start_date")
+    end_date_str = request.args.get("end_date")
+    
     logs = load_logs()
     
-    daily_counts = {}
+    # 날짜 필터 기간 유효성 검사
+    if start_date_str and end_date_str:
+        try:
+            start_dt = datetime.strptime(start_date_str, "%Y-%m-%d")
+            end_dt = datetime.strptime(end_date_str, "%Y-%m-%d")
+            if (end_dt - start_dt).days > 92:
+                return jsonify({"success": False, "error": "조회 기간은 최대 3개월(92일)까지 설정할 수 있습니다."}), 400
+        except ValueError:
+            return jsonify({"success": False, "error": "날짜 형식이 올바르지 않습니다. (YYYY-MM-DD)"}), 400
+    else:
+        # 기본값: 최근 30일 설정
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=30)
+        start_date_str = start_dt.strftime("%Y-%m-%d")
+        end_date_str = end_dt.strftime("%Y-%m-%d")
+        
+    daily_data = {}
     category_counts = {}
+    
+    import re as _re
+    
     for log in logs:
         try:
-            date_str = log["timestamp"].split(" ")[0]
-            daily_counts[date_str] = daily_counts.get(date_str, 0) + 1
-            cat = log.get("category", "기타") or "기타"
-            category_counts[cat] = category_counts.get(cat, 0) + 1
+            log_date_str = log["timestamp"].split(" ")[0]
+            if start_date_str <= log_date_str <= end_date_str:
+                # 일별 질문 건수 및 질문 상세 리스트 적재
+                if log_date_str not in daily_data:
+                    daily_data[log_date_str] = {
+                        "date": log_date_str, 
+                        "count": 0, 
+                        "questions": []
+                    }
+                
+                raw_answer = log.get("answer", "")
+                clean_answer = _re.sub(r'\n*태그\s*:.*', '', raw_answer, flags=_re.IGNORECASE).strip()
+                
+                daily_data[log_date_str]["count"] += 1
+                daily_data[log_date_str]["questions"].append({
+                    "timestamp": log["timestamp"],
+                    "category": log.get("category", "기타") or "기타",
+                    "query": log.get("query", ""),
+                    "answer": clean_answer,
+                    "found": log.get("found", False)
+                })
+                
+                # 카테고리별 건수
+                cat = log.get("category", "기타") or "기타"
+                category_counts[cat] = category_counts.get(cat, 0) + 1
         except Exception:
             continue
             
     sorted_daily = []
-    for d in sorted(daily_counts.keys()):
-        sorted_daily.append({"date": d, "count": daily_counts[d]})
+    for d in sorted(daily_data.keys()):
+        # 최근 질문이 목록 위쪽으로 오도록 정렬
+        daily_data[d]["questions"].reverse()
+        sorted_daily.append(daily_data[d])
 
     category_data = [{"category": k, "count": v} for k, v in
                      sorted(category_counts.items(), key=lambda x: -x[1])]
         
-    return jsonify({"success": True, "data": sorted_daily, "categories": category_data})
+    return jsonify({
+        "success": True, 
+        "data": sorted_daily, 
+        "categories": category_data,
+        "start_date": start_date_str,
+        "end_date": end_date_str
+    })
 
 @app.route("/api/logs/download", methods=["GET"])
 def download_logs_excel():
     if not session.get("admin_logged_in"):
         return redirect(url_for("admin_login"))
         
+    start_date_str = request.args.get("start_date")
+    end_date_str = request.args.get("end_date")
+    
     logs = load_logs()
     
+    filtered_logs = []
+    for log in logs:
+        try:
+            log_date_str = log["timestamp"].split(" ")[0]
+            if start_date_str and end_date_str:
+                if start_date_str <= log_date_str <= end_date_str:
+                    filtered_logs.append(log)
+            else:
+                filtered_logs.append(log)
+        except Exception:
+            continue
+            
     wb = Workbook()
     ws = wb.active
-    ws.title = "질문 이력 (3개월)"
+    ws.title = "질문 이력"
     
     headers = ["번호", "질문일시", "카테고리", "질문", "답변", "적합성 여부"]
     ws.append(headers)
     
-    for idx, log in enumerate(reversed(logs), start=1):
-        # 답변에서 태그 줄 제거 후 저장
+    for idx, log in enumerate(reversed(filtered_logs), start=1):
         raw_answer = log.get("answer", "")
         clean_answer = raw_answer
         import re as _re
@@ -578,11 +643,16 @@ def download_logs_excel():
     
     from datetime import date
     today_str = date.today().strftime("%Y%m%d")
+    
+    filename = f"chatbot_log_{today_str}.xlsx"
+    if start_date_str and end_date_str:
+        filename = f"chatbot_log_{start_date_str}_to_{end_date_str}.xlsx"
+        
     return send_file(
         excel_stream,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         as_attachment=True,
-        download_name=f"chatbot_log_{today_str}.xlsx"
+        download_name=filename
     )
 
 
