@@ -1,0 +1,842 @@
+/* ============================================
+   기숙사 챗봇 — 채팅 전용 스타일
+   ============================================ */
+@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg-base:      #fff0f2;
+  --bg-surface:   #ffffff;
+  --bg-elevated:  #ffe8eb;
+  --bg-hover:     #ffd8dd;
+  --border:       #ffd0d6;
+
+  --accent:       #ff748c;
+  --accent-hover: #ff526f;
+  --accent-dim:   rgba(255, 116, 140, 0.12);
+
+  --green:        #3fb950;
+  --red:          #ff5c5c;
+
+  --text-primary:   #4a3a3c;
+  --text-secondary: #7d6568;
+  --text-muted:     #b0989b;
+
+  --bot-bubble:   #fcf0f2;
+  --user-bubble:  #ff8da1;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 26px;
+
+  --shadow: 0 8px 32px rgba(255, 116, 140, 0.08);
+  --t: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ──────────────────────────────────────────
+   채팅 전용 레이아웃
+   ────────────────────────────────────────── */
+body:not(.admin-body) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at 60% 20%, rgba(255,116,140,0.08) 0%, transparent 60%),
+              var(--bg-base);
+}
+
+.chat-wrap {
+  width: 100%;
+  max-width: 760px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+/* ── 공통 헤더 ── */
+.chat-header, .admin-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-icon { font-size: 26px; }
+
+.header-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.header-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--green);
+  font-weight: 500;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.admin-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--t), color var(--t);
+}
+
+.admin-btn:hover {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+/* ── 메시지 영역 ── */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  scroll-behavior: smooth;
+}
+
+.chat-messages::-webkit-scrollbar { width: 5px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── 말풍선 ── */
+.message {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  animation: fadeUp 0.25s ease;
+}
+
+.message.user-message {
+  flex-direction: row-reverse;
+  max-width: 85%;
+  align-self: flex-end;
+}
+
+.message.bot-message {
+  max-width: 90%;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.bot-avatar  { background: var(--bg-elevated); border: 1px solid var(--border); }
+.user-avatar { background: var(--user-bubble); }
+
+.message-bubble {
+  background: var(--bot-bubble);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  border-top-left-radius: var(--radius-sm);
+  padding: 14px 18px;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.user-message .message-bubble {
+  background: var(--user-bubble);
+  border-color: rgba(255,116,140,0.25);
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-sm);
+  color: #ffffff;
+}
+
+.message-bubble p + p { margin-top: 5px; }
+.message-bubble strong { color: var(--accent-hover); }
+
+/* 출처 태그 */
+.references {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ref-label {
+  width: 100%;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.ref-tag {
+  font-size: 11px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 2px 9px;
+  border-radius: 20px;
+}
+
+/* 빠른 질문 칩 */
+.quick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.chip {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  padding: 6px 13px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background var(--t), border-color var(--t), transform var(--t);
+}
+
+.chip:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+/* 로딩 */
+.loading-message .message-bubble {
+  padding: 16px 20px;
+}
+
+.loading-dots span {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  margin: 0 2px;
+  animation: dotBounce 1.2s infinite;
+}
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotBounce {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.5; }
+  40%           { transform: scale(1.1); opacity: 1; }
+}
+
+.error-bubble {
+  background: #ffe3e3 !important;
+  border-color: #ffb3b3 !important;
+  color: #ff5c5c !important;
+}
+
+/* ── 입력 영역 ── */
+.chat-input-area {
+  padding: 14px 20px 18px;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 10px 10px 10px 18px;
+  transition: border-color var(--t), box-shadow var(--t);
+}
+
+.input-wrapper:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(88,166,255,0.1);
+}
+
+.chat-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: none;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.chat-input::placeholder { color: var(--text-muted); }
+
+.send-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background var(--t), transform var(--t);
+}
+
+.send-btn:hover  { background: var(--accent-hover); transform: scale(1.06); }
+.send-btn:active { transform: scale(0.94); }
+.send-btn:disabled { background: var(--border); cursor: not-allowed; transform: none; }
+.send-btn svg { width: 15px; height: 15px; color: white; }
+
+.input-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* ──────────────────────────────────────────
+   관리자 레이아웃
+   ────────────────────────────────────────── */
+.admin-body {
+  overflow-y: auto;
+  min-height: 100vh;
+}
+
+.admin-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.admin-top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.admin-main {
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* 카드 */
+.admin-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.card-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 18px;
+}
+
+.card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.total-badge {
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 12px;
+  border-radius: 20px;
+}
+
+/* 업로드 */
+.upload-area {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--t), background var(--t);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.upload-area:hover,
+.upload-area.dragover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.upload-icon { font-size: 40px; }
+.upload-text { font-size: 14px; color: var(--text-secondary); }
+
+.upload-btn-label {
+  display: inline-block;
+  padding: 8px 22px;
+  background: var(--accent);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--t);
+}
+
+.upload-btn-label:hover { background: var(--accent-hover); }
+.upload-hint { font-size: 11px; color: var(--text-muted); }
+
+.upload-result {
+  margin-top: 14px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.upload-result.success {
+  background: rgba(63,185,80,0.12);
+  border: 1px solid rgba(63,185,80,0.3);
+  color: var(--green);
+}
+
+.upload-result.error {
+  background: rgba(248,81,73,0.1);
+  border: 1px solid rgba(248,81,73,0.3);
+  color: #ffa198;
+}
+
+/* Q&A 테이블 */
+.qa-table-wrapper { overflow-x: auto; }
+
+.qa-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.qa-table th {
+  text-align: left;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.qa-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  vertical-align: top;
+  line-height: 1.55;
+}
+
+.qa-table tr:last-child td { border-bottom: none; }
+.qa-table tr:hover td { background: var(--bg-hover); color: var(--text-primary); }
+
+.qa-question { color: var(--text-primary) !important; font-weight: 500; }
+
+.cat-tag {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 20px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* 반응형 */
+@media (max-width: 600px) {
+  .chat-wrap { border: none; }
+  .admin-main { padding: 16px; }
+  .message.user-message { max-width: 95%; }
+  .message.bot-message  { max-width: 100%; }
+}
+
+/* ──────────────────────────────────────────
+   관리자 로그인 페이지 스타일
+   ────────────────────────────────────────── */
+.login-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at 50% 50%, rgba(88,166,255,0.05) 0%, transparent 70%),
+              var(--bg-base);
+}
+
+.login-container {
+  width: 100%;
+  max-width: 400px;
+  padding: 20px;
+}
+
+.login-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 32px 28px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.login-header {
+  text-align: center;
+}
+
+.login-icon {
+  font-size: 40px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.login-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.login-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.form-input {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 14px;
+  color: var(--text-primary);
+  outline: none;
+  font-family: inherit;
+  transition: border-color var(--t);
+}
+
+.form-input:focus {
+  border-color: var(--accent);
+}
+
+.login-error-msg {
+  font-size: 13px;
+  color: var(--red);
+  background: rgba(248,81,73,0.1);
+  border: 1px solid rgba(248,81,73,0.2);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+}
+
+.login-submit-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--t);
+}
+
+.login-submit-btn:hover {
+  background: var(--accent-hover);
+}
+
+.login-footer {
+  text-align: center;
+  margin-top: 10px;
+}
+
+.back-to-chat-link {
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-decoration: none;
+  transition: color var(--t);
+}
+
+.back-to-chat-link:hover {
+  color: var(--accent);
+}
+
+/* ──────────────────────────────────────────
+   헤더 우측 액션 및 버튼 확장
+   ────────────────────────────────────────── */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.secondary-btn {
+  background: var(--bg-hover) !important;
+}
+
+.warning-btn {
+  color: #ffa198 !important;
+  border-color: rgba(248,81,73,0.2) !important;
+}
+.warning-btn:hover {
+  background: rgba(248,81,73,0.1) !important;
+}
+
+/* ──────────────────────────────────────────
+   비밀번호 변경 모달 팝업 스타일
+   ────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 440px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  animation: modalFadeIn 0.2s ease;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.modal-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 24px;
+  cursor: pointer;
+  line-height: 1;
+}
+.close-btn:hover {
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.modal-error-msg {
+  font-size: 13px;
+  color: var(--red);
+  background: rgba(248,81,73,0.1);
+  border: 1px solid rgba(248,81,73,0.2);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+}
+
+.modal-success-msg {
+  font-size: 13px;
+  color: var(--green);
+  background: rgba(63,185,80,0.1);
+  border: 1px solid rgba(63,185,80,0.2);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+}
+
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modal-btn {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  transition: background var(--t);
+}
+
+.cancel-btn {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+.cancel-btn:hover {
+  background: var(--bg-hover);
+}
+
+.confirm-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+}
+.confirm-btn:hover {
+  background: var(--accent-hover);
+}
+
+.login-find-link-wrapper {
+  text-align: center;
+  margin-top: 14px;
+}
+
+.find-password-link {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--t);
+}
+
+.find-password-link:hover {
+  color: var(--accent);
+}
+
+

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>관리자 페이지 — 기숙사 안내 챗봇</title>
+  <meta name="description" content="기숙사 챗봇 관리자 페이지: Q&A 목록 확인 및 엑셀 파일 업데이트"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body class="admin-body">
+
+<div class="admin-layout">
+
+  <!-- 상단 헤더 -->
+  <header class="admin-top-bar">
+    <div class="header-left">
+      <span class="header-icon">⚙️</span>
+      <div>
+        <h1 class="header-title">관리자 페이지</h1>
+        <p class="header-sub">엑셀 업로드 및 Q&amp;A 목록 관리</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="admin-btn secondary-btn" onclick="openPasswordModal()">🔑 비밀번호 변경</button>
+      <a href="/admin/logout" class="admin-btn warning-btn">🚪 로그아웃</a>
+      <a href="/" class="admin-btn" id="back-btn">💬 챗봇으로</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+
+    <!-- 업로드 카드 -->
+    <section class="admin-card" id="upload-section">
+      <h2 class="card-title">📂 엑셀 파일 업데이트</h2>
+      <p class="card-desc">새 엑셀 파일을 올리면 챗봇 내용이 즉시 바뀝니다.</p>
+
+      <div class="upload-area" id="upload-area"
+           ondragover="onDragOver(event)"
+           ondrop="onDrop(event)"
+           ondragleave="onDragLeave(event)">
+        <div class="upload-icon">📄</div>
+        <p class="upload-text">여기에 파일을 드래그하거나</p>
+        <label class="upload-btn-label" for="file-input" id="upload-label">
+          파일 선택
+          <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none" onchange="uploadFile(this)"/>
+        </label>
+        <p class="upload-hint">.xlsx / .xls 파일만 · 최대 10MB</p>
+      </div>
+
+      <div class="upload-result" id="upload-result" style="display:none"></div>
+    </section>
+
+    <!-- Q&A 목록 카드 -->
+    <section class="admin-card" id="qa-section">
+      <div class="card-header-row">
+        <h2 class="card-title">📋 등록된 Q&amp;A 목록</h2>
+        <span class="total-badge" id="total-badge">총 {{ total }}개</span>
+      </div>
+
+      <div class="qa-table-wrapper">
+        {% if qa_list %}
+        <table class="qa-table" id="qa-table">
+          <thead>
+            <tr>
+              <th style="width:110px">카테고리</th>
+              <th style="width:32%">질문</th>
+              <th>답변</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in qa_list %}
+            <tr id="qa-row-{{ loop.index }}">
+              <td><span class="cat-tag">{{ item.category }}</span></td>
+              <td class="qa-question">{{ item.question }}</td>
+              <td class="qa-answer">{{ item.answer }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state" id="empty-state">
+          <p>📭 등록된 Q&amp;A가 없습니다. 엑셀 파일을 업로드해 주세요.</p>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- 비밀번호 변경 모달 팝업 -->
+<div class="modal-overlay" id="password-modal" style="display: none;">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 class="modal-title">🔑 관리자 비밀번호 변경</h3>
+      <button class="close-btn" onclick="closePasswordModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="current-password" class="form-label">현재 비밀번호</label>
+        <input type="password" id="current-password" class="form-input" placeholder="현재 비밀번호 입력" />
+      </div>
+      <div class="form-group">
+        <label for="new-password" class="form-label">새 비밀번호</label>
+        <input type="password" id="new-password" class="form-input" placeholder="새 비밀번호 입력" />
+      </div>
+      <div class="form-group">
+        <label for="confirm-password" class="form-label">새 비밀번호 확인</label>
+        <input type="password" id="confirm-password" class="form-input" placeholder="새 비밀번호 다시 입력" />
+      </div>
+      <div class="modal-error-msg" id="modal-error" style="display: none;"></div>
+      <div class="modal-success-msg" id="modal-success" style="display: none;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn cancel-btn" onclick="closePasswordModal()">취소</button>
+      <button class="modal-btn confirm-btn" onclick="submitPasswordChange()">변경하기</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/chat.js"></script>
+<script>
+function openPasswordModal() {
+  document.getElementById("password-modal").style.display = "flex";
+  document.getElementById("current-password").value = "";
+  document.getElementById("new-password").value = "";
+  document.getElementById("confirm-password").value = "";
+  hideModalMessages();
+}
+
+function closePasswordModal() {
+  document.getElementById("password-modal").style.display = "none";
+}
+
+function hideModalMessages() {
+  const errDiv = document.getElementById("modal-error");
+  const succDiv = document.getElementById("modal-success");
+  errDiv.style.display = "none";
+  errDiv.textContent = "";
+  succDiv.style.display = "none";
+  succDiv.textContent = "";
+}
+
+async function submitPasswordChange() {
+  hideModalMessages();
+  
+  const currentPassword = document.getElementById("current-password").value.trim();
+  const newPassword = document.getElementById("new-password").value.trim();
+  const confirmPassword = document.getElementById("confirm-password").value.trim();
+  
+  const errDiv = document.getElementById("modal-error");
+  const succDiv = document.getElementById("modal-success");
+  
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    errDiv.textContent = "모든 항목을 입력해 주세요.";
+    errDiv.style.display = "block";
+    return;
+  }
+  
+  if (newPassword !== confirmPassword) {
+    errDiv.textContent = "새 비밀번호가 일치하지 않습니다.";
+    errDiv.style.display = "block";
+    return;
+  }
+
+  if (newPassword.length < 4) {
+    errDiv.textContent = "비밀번호는 최소 4자리 이상이어야 합니다.";
+    errDiv.style.display = "block";
+    return;
+  }
+  
+  try {
+    const response = await fetch("/admin/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      errDiv.textContent = data.error || "오류가 발생했습니다.";
+      errDiv.style.display = "block";
+    } else {
+      succDiv.textContent = data.message || "비밀번호가 성공적으로 변경되었습니다. 1.5초 후 이동합니다.";
+      succDiv.style.display = "block";
+      setTimeout(() => {
+        window.location.href = "/admin/login";
+      }, 1500);
+    }
+  } catch (error) {
+    errDiv.textContent = "네트워크 오류가 발생했습니다.";
+    errDiv.style.display = "block";
+  }
+}
+</script>
+</body>
+</html>

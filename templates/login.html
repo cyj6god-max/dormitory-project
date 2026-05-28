@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>관리자 로그인 — 기숙사 안내 챗봇</title>
+  <meta name="description" content="기숙사 챗봇 관리자 로그인"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body class="login-body">
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <span class="login-icon">⚙️</span>
+        <h1 class="login-title">관리자 로그인</h1>
+        <p class="login-subtitle">기숙사 챗봇 관리 시스템</p>
+      </div>
+
+      <form action="/admin/login" method="POST" class="login-form">
+        <div class="form-group">
+          <label for="password" class="form-label">비밀번호 입력</label>
+          <input type="password" id="password" name="password" class="form-input" placeholder="비밀번호를 입력하세요" required autofocus />
+        </div>
+
+        {% if error %}
+        <div class="login-error-msg">
+          ⚠️ {{ error }}
+        </div>
+        {% endif %}
+
+        <button type="submit" class="login-submit-btn">로그인</button>
+        <div class="login-find-link-wrapper">
+          <a href="#" class="find-password-link" onclick="openFindModal(event)">🔑 비밀번호를 잊으셨나요? (비밀번호 찾기)</a>
+        </div>
+      </form>
+      
+      <div class="login-footer">
+        <a href="/" class="back-to-chat-link">💬 챗봇 화면으로 돌아가기</a>
+      </div>
+    </div>
+  </div>
+  <!-- 비밀번호 찾기 모달 팝업 -->
+  <div class="modal-overlay" id="find-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">🔎 관리자 비밀번호 찾기</h3>
+        <button class="close-btn" onclick="closeFindModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="find-name" class="form-label">관리자 이름</label>
+          <input type="text" id="find-name" class="form-input" placeholder="이름 입력 (예: 홍길동)" />
+        </div>
+        <div class="form-group">
+          <label for="find-init-pwd" class="form-label">초기 비밀번호</label>
+          <input type="password" id="find-init-pwd" class="form-input" placeholder="초기 비밀번호 입력" />
+        </div>
+        <div class="modal-error-msg" id="find-error" style="display: none;"></div>
+        <div class="modal-success-msg" id="find-success" style="display: none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn cancel-btn" onclick="closeFindModal()">닫기</button>
+        <button class="modal-btn confirm-btn" onclick="submitPasswordFind()">찾기</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  function openFindModal(e) {
+    e.preventDefault();
+    document.getElementById("find-modal").style.display = "flex";
+    document.getElementById("find-name").value = "";
+    document.getElementById("find-init-pwd").value = "";
+    hideFindMessages();
+  }
+
+  function closeFindModal() {
+    document.getElementById("find-modal").style.display = "none";
+  }
+
+  function hideFindMessages() {
+    const errDiv = document.getElementById("find-error");
+    const succDiv = document.getElementById("find-success");
+    errDiv.style.display = "none";
+    errDiv.textContent = "";
+    succDiv.style.display = "none";
+    succDiv.textContent = "";
+  }
+
+  async function submitPasswordFind() {
+    hideFindMessages();
+    
+    const name = document.getElementById("find-name").value.trim();
+    const initPwd = document.getElementById("find-init-pwd").value.trim();
+    
+    const errDiv = document.getElementById("find-error");
+    const succDiv = document.getElementById("find-success");
+    
+    if (!name || !initPwd) {
+      errDiv.textContent = "관리자 이름과 초기 비밀번호를 모두 입력해 주세요.";
+      errDiv.style.display = "block";
+      return;
+    }
+    
+    try {
+      const response = await fetch("/admin/find-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name,
+          init_password: initPwd
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        errDiv.textContent = data.error || "관리자 인증에 실패했습니다.";
+        errDiv.style.display = "block";
+      } else {
+        succDiv.innerHTML = `인증에 성공했습니다!<br/>현재 비밀번호: <strong>${data.password}</strong>`;
+        succDiv.style.display = "block";
+      }
+    } catch (error) {
+      errDiv.textContent = "네트워크 오류가 발생했습니다.";
+      errDiv.style.display = "block";
+    }
+  }
+  </script>
+</body>
+</html>

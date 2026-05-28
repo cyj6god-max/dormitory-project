@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>기숙사 안내 챗봇 🏠</title>
+  <meta name="description" content="사내 기숙사 거주자를 위한 인프라 안내 챗봇입니다. 입퇴실, 규정, 가전관리 등 궁금한 사항을 질문해보세요." />
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #4F6EF7;
+      --primary-dark: #3B56D9;
+      --primary-light: #EEF1FF;
+      --accent: #7C3AED;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --bg: #0F1117;
+      --surface: #1A1D2E;
+      --surface2: #232640;
+      --surface3: #2D3158;
+      --border: rgba(79, 110, 247, 0.18);
+      --text: #E8EAFF;
+      --text-muted: #8B93C4;
+      --text-dim: #545B8A;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --shadow: 0 8px 32px rgba(0,0,0,0.4);
+      --glow: 0 0 20px rgba(79, 110, 247, 0.25);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      background: linear-gradient(135deg, #1A1D2E 0%, #1e2240 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.3);
+      position: relative;
+      z-index: 10;
+    }
+
+    .header-icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 4px 15px rgba(79, 110, 247, 0.4);
+      flex-shrink: 0;
+    }
+
+    .header-info h1 {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .header-info p {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 5px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ===== MAIN LAYOUT ===== */
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ===== SIDEBAR ===== */
+    .sidebar {
+      width: 240px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .sidebar-title {
+      padding: 18px 16px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+    }
+
+    .category-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 10px 10px;
+    }
+
+    .category-btn {
+      width: 100%;
+      background: none;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      padding: 11px 14px;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-muted);
+      transition: all 0.2s ease;
+      margin-bottom: 4px;
+    }
+
+    .category-btn:hover {
+      background: var(--surface2);
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    .category-btn.active {
+      background: var(--primary-light);
+      background: linear-gradient(135deg, rgba(79,110,247,0.2) 0%, rgba(124,58,237,0.15) 100%);
+      border-color: rgba(79,110,247,0.4);
+      color: #A5B4FC;
+      box-shadow: var(--glow);
+    }
+
+    .category-btn .cat-icon { font-size: 18px; }
+    .category-btn .cat-count {
+      margin-left: auto;
+      font-size: 11px;
+      background: var(--surface3);
+      color: var(--text-dim);
+      padding: 2px 7px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    .category-btn.active .cat-count {
+      background: rgba(79,110,247,0.3);
+      color: #A5B4FC;
+    }
+
+    /* sidebar FAQ section */
+    .sidebar-faq {
+      border-top: 1px solid var(--border);
+      padding: 14px 10px;
+    }
+
+    .sidebar-faq-title {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 0 6px 8px;
+    }
+
+    .faq-chip {
+      display: block;
+      width: 100%;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: left;
+      cursor: pointer;
+      margin-bottom: 4px;
+      transition: all 0.18s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .faq-chip:hover {
+      background: var(--surface2);
+      color: var(--text);
+      border-color: rgba(79,110,247,0.4);
+    }
+
+    /* ===== CHAT AREA ===== */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    /* category pills row */
+    .category-pills {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      flex-shrink: 0;
+      background: var(--surface);
+    }
+
+    .category-pills::-webkit-scrollbar { height: 3px; }
+    .category-pills::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .pill {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      border: 1px solid transparent;
+      transition: all 0.18s ease;
+      color: var(--text-muted);
+      background: var(--surface2);
+    }
+
+    .pill:hover { border-color: rgba(79,110,247,0.4); color: var(--text); }
+
+    .pill.active {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(79,110,247,0.35);
+    }
+
+    /* messages */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 2px; }
+
+    /* welcome card */
+    .welcome-card {
+      background: linear-gradient(135deg, rgba(79,110,247,0.12) 0%, rgba(124,58,237,0.1) 100%);
+      border: 1px solid rgba(79,110,247,0.25);
+      border-radius: var(--radius);
+      padding: 22px;
+      text-align: center;
+      animation: fadeUp 0.5s ease;
+    }
+
+    .welcome-card .wc-icon { font-size: 38px; margin-bottom: 10px; }
+    .welcome-card h2 { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .welcome-card p { font-size: 13.5px; color: var(--text-muted); line-height: 1.6; }
+
+    .quick-topics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 14px;
+    }
+
+    .qt-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 7px 14px;
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.18s;
+      font-family: inherit;
+    }
+
+    .qt-btn:hover {
+      background: rgba(79,110,247,0.15);
+      border-color: rgba(79,110,247,0.4);
+      color: #A5B4FC;
+    }
+
+    /* chat bubbles */
+    .msg {
+      display: flex;
+      gap: 10px;
+      animation: fadeUp 0.3s ease;
+    }
+
+    .msg.user { flex-direction: row-reverse; }
+
+    .msg-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .msg.bot .msg-avatar {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      box-shadow: 0 3px 10px rgba(79,110,247,0.3);
+    }
+
+    .msg.user .msg-avatar {
+      background: var(--surface2);
+    }
+
+    .msg-bubble {
+      max-width: 74%;
+      padding: 13px 16px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .msg.bot .msg-bubble {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-top-left-radius: 4px;
+      color: var(--text);
+    }
+
+    .msg.user .msg-bubble {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: #fff;
+      border-top-right-radius: 4px;
+      box-shadow: 0 4px 14px rgba(79,110,247,0.3);
+    }
+
+    /* answer card styles */
+    .answer-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      max-width: 78%;
+      animation: fadeUp 0.35s ease;
+    }
+
+    .answer-header {
+      background: linear-gradient(135deg, rgba(79,110,247,0.2) 0%, rgba(124,58,237,0.15) 100%);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .answer-header .cat-badge {
+      font-size: 11px;
+      background: rgba(79,110,247,0.3);
+      color: #A5B4FC;
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+
+    .answer-header .source-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-left: auto;
+    }
+
+    .answer-body {
+      padding: 16px;
+    }
+
+    .answer-body p {
+      font-size: 14px;
+      line-height: 1.75;
+      color: var(--text);
+    }
+
+    .answer-body .highlight {
+      background: rgba(79,110,247,0.15);
+      border-left: 3px solid var(--primary);
+      padding: 10px 13px;
+      border-radius: 0 8px 8px 0;
+      margin-top: 10px;
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    /* no-result card */
+    .no-result {
+      background: var(--surface2);
+      border: 1px solid rgba(245,158,11,0.25);
+      border-radius: var(--radius);
+      padding: 18px;
+      max-width: 78%;
+      animation: fadeUp 0.35s ease;
+    }
+
+    .no-result .nr-icon { font-size: 24px; margin-bottom: 8px; }
+    .no-result p { font-size: 14px; color: var(--text-muted); line-height: 1.65; }
+    .no-result strong { color: var(--warning); }
+
+    /* multiple results */
+    .multi-results {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      max-width: 80%;
+      animation: fadeUp 0.35s ease;
+    }
+
+    .multi-results .mr-header {
+      background: linear-gradient(135deg, rgba(79,110,247,0.15) 0%, rgba(124,58,237,0.1) 100%);
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #A5B4FC;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .result-item {
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.18s;
+    }
+
+    .result-item:last-child { border-bottom: none; }
+    .result-item:hover { background: var(--surface3); }
+
+    .result-item .ri-q {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .result-item .ri-a {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .result-item .ri-cat {
+      display: inline-block;
+      font-size: 11px;
+      background: rgba(79,110,247,0.2);
+      color: #A5B4FC;
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+
+    /* typing indicator */
+    .typing {
+      display: flex;
+      gap: 5px;
+      padding: 14px 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      border-top-left-radius: 4px;
+      width: fit-content;
+    }
+
+    .typing span {
+      width: 7px;
+      height: 7px;
+      background: var(--text-dim);
+      border-radius: 50%;
+      animation: typing 1.2s infinite;
+    }
+
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes typing {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-5px); opacity: 1; }
+    }
+
+    /* ===== INPUT AREA ===== */
+    .input-area {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 14px 16px;
+      flex-shrink: 0;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .input-wrapper {
+      flex: 1;
+      position: relative;
+    }
+
+    #userInput {
+      width: 100%;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      resize: none;
+      outline: none;
+      transition: border-color 0.2s;
+      line-height: 1.5;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    #userInput::placeholder { color: var(--text-dim); }
+
+    #userInput:focus {
+      border-color: rgba(79,110,247,0.5);
+      box-shadow: 0 0 0 3px rgba(79,110,247,0.1);
+    }
+
+    .send-btn {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.18s ease;
+      box-shadow: 0 4px 12px rgba(79,110,247,0.3);
+      flex-shrink: 0;
+    }
+
+    .send-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(79,110,247,0.45);
+    }
+
+    .send-btn:active { transform: translateY(0); }
+
+    .send-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: white;
+    }
+
+    .input-hint {
+      font-size: 11.5px;
+      color: var(--text-dim);
+      margin-top: 7px;
+      padding-left: 2px;
+    }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== SCROLLBAR ===== */
+    .category-list::-webkit-scrollbar { width: 3px; }
+    .category-list::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 2px; }
+
+    /* ===== MOBILE ===== */
+    @media (max-width: 640px) {
+      .sidebar { display: none; }
+      .msg-bubble, .answer-card, .multi-results, .no-result { max-width: 90%; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-icon">🏠</div>
+  <div class="header-info">
+    <h1>기숙사 안내 챗봇</h1>
+    <p><span class="status-dot"></span>엑셀 기반 Q&amp;A · 온라인 운영 중</p>
+  </div>
+</header>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-title">카테고리</div>
+    <div class="category-list" id="sidebarCats"></div>
+    <div class="sidebar-faq">
+      <div class="sidebar-faq-title">자주 묻는 질문</div>
+      <div id="faqChips"></div>
+    </div>
+  </aside>
+
+  <!-- CHAT -->
+  <div class="chat-area">
+    <!-- category pills -->
+    <div class="category-pills" id="pillRow"></div>
+
+    <!-- messages -->
+    <div class="messages" id="messages"></div>
+
+    <!-- input -->
+    <div class="input-area">
+      <div class="input-row">
+        <div class="input-wrapper">
+          <textarea
+            id="userInput"
+            rows="1"
+            placeholder="질문을 입력하세요 (예: 외박 신청은 어떻게 해?)"
+          ></textarea>
+        </div>
+        <button class="send-btn" id="sendBtn" title="전송 (Enter)">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="input-hint">⌨️ Enter로 전송 · Shift+Enter로 줄바꿈 · 엑셀 자료에 있는 내용만 답변합니다</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== DATA ==========
+// 엑셀에서 추출한 Q&A 데이터
+const CHATBOT_DATA = {
+  "전체": [],  // 아래에서 자동으로 채워짐
+  "입퇴실": [
+    { q: "입실 절차에 대해 알려줘", a: "기숙사 입실 희망일 최소 3일 전에 신청하며, 입실 당일에는 반드시 관리실에서 비품 현황 확인(비품 확인서)을 받아야 합니다." },
+    { q: "중도 퇴실하고 싶을 때는 어떻게 신청하나요?", a: "중도 퇴실 희망일 최소 7일 전까지 사내 그룹웨어 시스템을 통해 '기숙사 퇴실원서'를 작성하여 제출하셔야 일정이 확정됩니다." },
+    { q: "야간에 퇴실 신청하고 싶으면?", a: "야간 신청 시 최소 7일 전까지 사내 그룹웨어 시스템 중 '야간 입실원서'를 작성하여 제출 후 확인 바랍니다." },
+    { q: "입실 당일 준비물이나 체크리스트가 있나요?", a: "개인 침구류, 세면도구, 의류 등 개인 물품만 지참하시면 되며, 입실 당일 관리실에서 배부하는 '호실 비품 체크리스트'를 작성해 3일 내 제출해야 합니다." },
+    { q: "퇴실 시 청소 기준이 어떻게 되나요?", a: "개인 쓰레기 배출, 바닥 청소, 가구 내부 비우기를 완료해야 하며, 관리자 점검 시 청소 불량 판정을 받으면 재점검을 받거나 청소비가 청구될 수 있습니다." },
+    { q: "휴직 기간에도 기숙사 체류가 가능한가요?", a: "질병 휴직 등 특수한 경우를 제외한 일반 휴직(육아, 자기개발 등) 시에는 휴직 시작일 전날까지 퇴실하는 것이 원칙입니다." },
+  ],
+  "징계/규정": [
+    { q: "음주관련 문제가 생기면 어떻게 처리돼?", a: "기숙사 내 고성방가, 음주 소란 행위 적발 시 1차 경고, 2차 퇴실 조치됩니다. 타인에게 상해를 입히거나 기물을 파손하는 심각한 음주 문제는 즉시 퇴실(원스트라이크 아웃)이며 징계위원회에 회부됩니다." },
+    { q: "기숙사 내에서 흡연하면 어떻게 되나요?", a: "기숙사 건물 전체는 전면 금연 구역입니다. 실내 흡연 적발 시 즉시 퇴실 조치(원스트라이크 아웃)되며 화재 감지기 임의 조작 시 사규에 따라 가중 처벌됩니다." },
+    { q: "외박 신청은 어떻게 하나요?", a: "외박 당일 오후 10시 전까지 그룹웨어 앱을 통해 기간과 사유를 입력하여 신청해야 하며, 미신청 외박은 무단 외박으로 간주되어 벌점이 부과됩니다." },
+    { q: "기숙사 내 벌점 기준표가 있나요?", a: "무단외박(5점), 실내취사(10점), 외부인 동반(15점), 정기점검 거부(5점) 등이 있으며, 누적 벌점이 20점 이상일 경우 강제 퇴실 조치됩니다." },
+    { q: "강제 퇴실 처분을 받으면 재입실할 수 없나요?", a: "규정 위반으로 강제 퇴실된 임직원은 퇴실일로부터 최소 1년간 기숙사 재입실 신청이 전면 제한됩니다." },
+    { q: "기숙사 내 전열기구 사용 제한 기준이 무엇인가요?", a: "화재 예방을 위해 개인 전기장판, 전기히터, 커피포트, 인덕션 등 취사 및 난방용 전열기구의 반입과 사용은 절대 금지됩니다. (적발 시 벌점 10점)" },
+  ],
+  "근무시간": [
+    { q: "관리자 근무시간이 어떻게 돼?", a: "기숙사 관리소는 24시간 연중무휴 운영을 위해 4조 3교대로 근무합니다. 1직(Day): 07:00~15:00, 2직(Evening): 15:00~23:00, 3직(Night): 23:00~익일 07:00입니다. 교대 시간 전후 30분은 인수인계 시간입니다." },
+    { q: "주말이나 공휴일에도 관리실에 사람이 있나요?", a: "네, 관리사무소는 4조 3교대로 운영되므로 주말, 설/추석 연휴, 공휴일에 관계없이 365일 24시간 관리실에 근무자가 상주하고 있습니다." },
+    { q: "택배는 언제, 어디서 수령할 수 있나요?", a: "택배는 1층 무인택배함 또는 관리실 앞 택배 보관소에서 24시간 수령 가능합니다. 단, 관리자가 대신 수령 및 보관에 대한 책임을 지지는 않습니다." },
+    { q: "야간(새벽)에 방 키를 분실하면 어떻게 하나요?", a: "24시간 상주하는 관리실로 방문하여 신원 확인(사원증 또는 신분증) 후 마스터키를 대여해 입실할 수 있습니다. 키 분실 시 재발급 비용이 발생합니다." },
+    { q: "시설 보수 신청은 어떻게 하나요?", a: "전등 교체, 수전 고장 등 호실 내 시설 보수는 그룹웨어 '기숙사 민원접수' 메뉴에 등록해 주시면 관리실 담당자가 순차적으로 방문하여 수리합니다." },
+    { q: "기숙사비나 관리비 정산은 어떻게 이루어지나요?", a: "기숙사 사용료 및 공공요금(가스/전기 분할분)은 매월 급여에서 자동 공제되며, 중도 입퇴실 시에는 일할 계산되어 정산됩니다." },
+  ],
+  "가전관리": [
+    { q: "가전제품 관리 주기는 어떻게 되나요?", a: "쾌적한 환경을 위해 공용 가전 정기 점검을 실시합니다. 세탁기/건조기: 매월 1/15일 고온 살균, 공용 냉장고: 매주 금요일 18시 유통기한 경과 음식 폐기, 에어컨/공기청정기: 분기별 필터 세척 및 연 1회 전문 세척을 진행합니다." },
+    { q: "개인 호실 에어컨 필터 청소는 직접 해야 하나요?", a: "기본적인 먼지 필터 물청소는 거주자가 수시로 진행해야 하며, 매년 5월 말 여름 가동 전 관리소에서 일괄적으로 외부 업체를 통해 종합 분해 세척을 지원합니다." },
+    { q: "공용 세탁기나 건조기가 고장 나면 어디에 말하나요?", a: "해당 세탁실에 부착된 가전 고장 신고 QR코드를 스캔하여 접수하거나, 관리실(010-2629-8002)로 고장 가전 번호(예: 3층 2번 세탁기)를 알려주시기 바랍니다." },
+    { q: "공용 냉장고 청소 규칙이 어떻게 되나요?", a: "매주 금요일 18:00에 관리자가 냉장고 전체 청소를 진행합니다. 이때 '동·호수·이름'이 기재되지 않은 물품이나 유통기한이 지난 식품은 사전 예고 없이 전량 폐기됩니다." },
+    { q: "개인 호실에 미니 냉장고를 반입해도 되나요?", a: "개인 호실 내 50L 이하의 소형 무소음 미니 냉장고에 한하여 관리실 사전 승인(반입 신청서 제출) 후 반입하여 사용하실 수 있습니다." },
+    { q: "공용 주방 가전(전자레인지, 에어프라이어) 사용 주의사항은?", a: "사용 후 주변에 튄 음식물은 즉시 닦아내야 하며, 화재 위험이 있는 알루미늄 호일류는 전자레인지에 절대 넣지 마십시오. 사용 가능 시간은 06:00 ~ 23:00입니다." },
+  ],
+  "생활에티켓": [
+    { q: "기숙사 생활 에티켓(주의사항) 알려줘", a: "공동생활을 위해 다음 수칙을 준수해 주세요. 1. 소음 제한: 22시 이후 세탁기 사용 금지 및 복도 정숙 2. 청소: 분기별 지정일 분리수거 배출 3. 외부인: 가족·친구 포함 기숙사 내 출입 및 숙박 절대 불가합니다." },
+    { q: "기숙사에 가족이나 친구를 데려와서 재워도 되나요?", a: "보안 및 거주 임직원들의 안전을 위해 외부인(가족, 친구, 직장 동료 포함)의 기숙사 출입 및 숙박은 전면 금지되어 있으며, 적발 시 즉시 퇴실 조치됩니다." },
+    { q: "층간 소음이나 옆방 소음이 너무 심할 땐 어떻게 하나요?", a: "당사자 간의 마찰을 피하기 위해 직접 항의하지 마시고, 즉시 관리실로 연락하시면 근무자가 현장에 방문하여 주의 조치 및 중재를 진행합니다." },
+    { q: "배달 음식은 호실 앞까지 받을 수 있나요?", a: "기숙사 동별 보안 현관 내부로는 배달원 출입이 불가능합니다. 모든 배달 음식은 기숙사 1층 로비 외부 배달 구역(Drop Zone)에서 직접 수령하셔야 합니다." },
+    { q: "기숙사 내 분리수거 및 쓰레기 배출 시간은 언제인가요?", a: "일반 쓰레기는 호실별 종량제 봉투를 사용해 수시 배출 가능하며, 재활용 분리수거는 매주 화요일과 목요일 18:00 ~ 22:00에 1층 야외 분리수거장에서만 가능합니다." },
+    { q: "반려동물을 기숙사에서 키울 수 있나요?", a: "강아지, 고양이, 햄스터, 새 등 종류를 막론하고 공동생활 공간 내에서의 반려동물 사육은 전면 금지되어 있습니다. (적발 시 경고 없이 즉시 퇴실)" },
+  ],
+};
+
+// 전체 합치기
+Object.keys(CHATBOT_DATA).forEach(cat => {
+  if (cat !== "전체") {
+    CHATBOT_DATA["전체"].push(...CHATBOT_DATA[cat].map(item => ({...item, cat})));
+  }
+});
+
+// 카테고리 메타
+const CAT_META = {
+  "전체":    { icon: "🔍", label: "전체 검색" },
+  "입퇴실":  { icon: "🚪", label: "입퇴실" },
+  "징계/규정": { icon: "📋", label: "징계/규정" },
+  "근무시간": { icon: "⏰", label: "근무시간" },
+  "가전관리": { icon: "🔧", label: "가전관리" },
+  "생활에티켓": { icon: "🤝", label: "생활에티켓" },
+};
+
+// FAQ 자주 묻는 질문 (5개)
+const FAQ_LIST = [
+  "외박 신청은 어떻게 하나요?",
+  "벌점 기준표가 있나요?",
+  "택배 수령은 어디서 하나요?",
+  "세탁기가 고장 나면?",
+  "분리수거 시간은?",
+];
+
+// ========== STATE ==========
+let currentCat = "전체";
+
+// ========== INIT ==========
+function init() {
+  buildSidebar();
+  buildPills();
+  buildFAQ();
+  showWelcome();
+}
+
+function buildSidebar() {
+  const container = document.getElementById('sidebarCats');
+  container.innerHTML = '';
+  Object.keys(CAT_META).forEach(cat => {
+    const meta = CAT_META[cat];
+    const count = cat === "전체"
+      ? CHATBOT_DATA["전체"].length
+      : CHATBOT_DATA[cat]?.length ?? 0;
+    const btn = document.createElement('button');
+    btn.className = 'category-btn' + (cat === currentCat ? ' active' : '');
+    btn.innerHTML = `
+      <span class="cat-icon">${meta.icon}</span>
+      <span>${meta.label}</span>
+      <span class="cat-count">${count}</span>
+    `;
+    btn.addEventListener('click', () => selectCategory(cat));
+    container.appendChild(btn);
+  });
+}
+
+function buildPills() {
+  const row = document.getElementById('pillRow');
+  row.innerHTML = '';
+  Object.keys(CAT_META).forEach(cat => {
+    const meta = CAT_META[cat];
+    const pill = document.createElement('button');
+    pill.className = 'pill' + (cat === currentCat ? ' active' : '');
+    pill.textContent = `${meta.icon} ${meta.label}`;
+    pill.addEventListener('click', () => selectCategory(cat));
+    row.appendChild(pill);
+  });
+}
+
+function buildFAQ() {
+  const container = document.getElementById('faqChips');
+  container.innerHTML = '';
+  FAQ_LIST.forEach(q => {
+    const chip = document.createElement('button');
+    chip.className = 'faq-chip';
+    chip.textContent = q;
+    chip.addEventListener('click', () => {
+      document.getElementById('userInput').value = q;
+      handleSend();
+    });
+    container.appendChild(chip);
+  });
+}
+
+function selectCategory(cat) {
+  currentCat = cat;
+  buildSidebar();
+  buildPills();
+
+  const msgs = document.getElementById('messages');
+  msgs.innerHTML = '';
+
+  if (cat === "전체") {
+    showWelcome();
+  } else {
+    const meta = CAT_META[cat];
+    // 카테고리 안내 메시지
+    addBotMessage(`<b>${meta.icon} ${meta.label}</b> 카테고리가 선택되었어요.<br>이 카테고리에는 <b>${CHATBOT_DATA[cat].length}개</b>의 Q&amp;A가 있습니다. 아래에서 질문을 선택하거나, 직접 질문을 입력해보세요!`);
+    // 해당 카테고리 Q 목록 표시
+    showCategoryList(cat);
+  }
+}
+
+function showCategoryList(cat) {
+  const items = CHATBOT_DATA[cat];
+  const msgs = document.getElementById('messages');
+  const wrapper = document.createElement('div');
+  wrapper.className = 'multi-results';
+  wrapper.innerHTML = `<div class="mr-header">📌 ${CAT_META[cat].icon} ${cat} 관련 질문 목록 (${items.length}개)</div>`;
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'result-item';
+    div.innerHTML = `
+      <div class="ri-cat">${cat}</div>
+      <div class="ri-q">Q. ${item.q}</div>
+      <div class="ri-a">${item.a}</div>
+    `;
+    div.addEventListener('click', () => {
+      addUserMessage(item.q);
+      setTimeout(() => showAnswer(item, cat), 600);
+    });
+    wrapper.appendChild(div);
+  });
+  msgs.appendChild(wrapper);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function showWelcome() {
+  const msgs = document.getElementById('messages');
+  msgs.innerHTML = '';
+  const card = document.createElement('div');
+  card.className = 'welcome-card';
+  card.innerHTML = `
+    <div class="wc-icon">🏠</div>
+    <h2>기숙사 안내 챗봇에 오신 것을 환영해요!</h2>
+    <p>엑셀에 등록된 Q&amp;A 자료를 기반으로 답변드립니다.<br>궁금한 내용을 자유롭게 질문하거나, 카테고리를 선택해보세요.</p>
+    <div class="quick-topics">
+      ${FAQ_LIST.map(q => `<button class="qt-btn" onclick="quickAsk('${q.replace(/'/g, "\\'")}')">${q}</button>`).join('')}
+    </div>
+  `;
+  msgs.appendChild(card);
+}
+
+window.quickAsk = function(q) {
+  document.getElementById('userInput').value = q;
+  handleSend();
+};
+
+// ========== SEARCH ==========
+function searchAnswer(query) {
+  const q = query.trim().toLowerCase();
+  const pool = currentCat === "전체"
+    ? CHATBOT_DATA["전체"]
+    : CHATBOT_DATA[currentCat].map(item => ({...item, cat: currentCat}));
+
+  // 점수 계산 (키워드 매칭)
+  const scored = pool.map(item => {
+    const text = (item.q + ' ' + item.a).toLowerCase();
+    let score = 0;
+
+    // 질문 전체 포함
+    if (text.includes(q)) score += 10;
+
+    // 단어 단위 매칭
+    const words = q.split(/\s+/).filter(w => w.length >= 1);
+    words.forEach(w => {
+      if (item.q.toLowerCase().includes(w)) score += 5;
+      if (item.a.toLowerCase().includes(w)) score += 2;
+    });
+
+    return { ...item, score };
+  });
+
+  return scored.filter(i => i.score > 0).sort((a, b) => b.score - a.score);
+}
+
+// ========== CHAT RENDERING ==========
+function addUserMessage(text) {
+  const msgs = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  div.innerHTML = `
+    <div class="msg-avatar">👤</div>
+    <div class="msg-bubble">${escapeHtml(text)}</div>
+  `;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addBotMessage(html) {
+  const msgs = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg bot';
+  div.innerHTML = `
+    <div class="msg-avatar">🏠</div>
+    <div class="msg-bubble">${html}</div>
+  `;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function showTyping() {
+  const msgs = document.getElementById('messages');
+  const wrapper = document.createElement('div');
+  wrapper.className = 'msg bot';
+  wrapper.id = 'typingIndicator';
+  wrapper.innerHTML = `
+    <div class="msg-avatar">🏠</div>
+    <div class="typing"><span></span><span></span><span></span></div>
+  `;
+  msgs.appendChild(wrapper);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById('typingIndicator');
+  if (t) t.remove();
+}
+
+function showAnswer(item, cat) {
+  removeTyping();
+  const msgs = document.getElementById('messages');
+  const card = document.createElement('div');
+  card.className = 'answer-card';
+  card.innerHTML = `
+    <div class="answer-header">
+      <span class="cat-badge">${CAT_META[cat]?.icon || ''} ${cat}</span>
+      <span class="source-label">📄 엑셀 자료 기반 답변</span>
+    </div>
+    <div class="answer-body">
+      <p>${escapeHtml(item.a)}</p>
+      <div class="highlight">💡 <b>Q.</b> ${escapeHtml(item.q)}</div>
+    </div>
+  `;
+  msgs.appendChild(card);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function showMultiResults(results) {
+  removeTyping();
+  const msgs = document.getElementById('messages');
+
+  if (results.length === 0) {
+    const card = document.createElement('div');
+    card.className = 'no-result';
+    card.innerHTML = `
+      <div class="nr-icon">🔍</div>
+      <p><strong>자료에서 찾을 수 없어요.</strong><br>
+      엑셀에 등록된 내용 내에서만 답변이 가능합니다.<br>
+      다른 키워드로 질문하시거나, 관리실에 직접 문의해주세요.<br>
+      📞 관리실: <strong>010-2629-8002</strong></p>
+    `;
+    msgs.appendChild(card);
+    msgs.scrollTop = msgs.scrollHeight;
+    return;
+  }
+
+  if (results.length === 1) {
+    showAnswer(results[0], results[0].cat);
+    return;
+  }
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'multi-results';
+  const top3 = results.slice(0, 3);
+  wrapper.innerHTML = `<div class="mr-header">🔍 관련 답변 ${top3.length}개를 찾았어요. 해당하는 항목을 눌러주세요.</div>`;
+  top3.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'result-item';
+    div.innerHTML = `
+      <div class="ri-cat">${CAT_META[item.cat]?.icon || ''} ${item.cat}</div>
+      <div class="ri-q">Q. ${escapeHtml(item.q)}</div>
+      <div class="ri-a">${escapeHtml(item.a)}</div>
+    `;
+    div.addEventListener('click', () => {
+      wrapper.remove();
+      addUserMessage(item.q);
+      showAnswer(item, item.cat);
+    });
+    wrapper.appendChild(div);
+  });
+  msgs.appendChild(wrapper);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ========== SEND ==========
+function handleSend() {
+  const input = document.getElementById('userInput');
+  const query = input.value.trim();
+  if (!query) return;
+
+  addUserMessage(query);
+  input.value = '';
+  input.style.height = 'auto';
+
+  showTyping();
+
+  setTimeout(() => {
+    const results = searchAnswer(query);
+    if (results.length === 1) {
+      showAnswer(results[0], results[0].cat);
+      removeTyping();
+    } else {
+      showMultiResults(results);
+    }
+  }, 700);
+}
+
+// ========== UTILS ==========
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ========== EVENT LISTENERS ==========
+document.getElementById('sendBtn').addEventListener('click', handleSend);
+
+document.getElementById('userInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    handleSend();
+  }
+});
+
+// auto-resize textarea
+document.getElementById('userInput').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+// ========== START ==========
+init();
+</script>
+</body>
+</html>
