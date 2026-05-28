@@ -24,6 +24,7 @@ import json
 from datetime import datetime, timedelta
 import io
 from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
 
 load_dotenv()
 
@@ -339,7 +340,7 @@ def download_logs_excel():
             # None 방지 및 한글/영문 길이 보정
             val = str(cell.value or '')
             max_len = max(max_len, len(val))
-        col_letter = col[0].column_letter
+        col_letter = get_column_letter(col[0].column)
         ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
         
     excel_stream = io.BytesIO()
