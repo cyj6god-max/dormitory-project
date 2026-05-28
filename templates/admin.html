@@ -9,6 +9,35 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="/static/style.css"/>
+  <style>
+    /* 탭 메뉴 스타일 */
+    .admin-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 0;
+    }
+    .tab-btn {
+      padding: 12px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: #718096;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .tab-btn:hover {
+      color: #4a5568;
+    }
+    .tab-btn.active {
+      color: #3182ce;
+      border-bottom-color: #3182ce;
+    }
+  </style>
 </head>
 <body class="admin-body">
 
@@ -24,6 +53,7 @@
       </div>
     </div>
     <div class="header-actions">
+      <a href="/api/logs/download" class="admin-btn confirm-btn" style="background: #2b6cb0; text-decoration: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">📥 질문 기록 엑셀 다운로드</a>
       <button type="button" class="admin-btn secondary-btn" onclick="openPasswordModal()">🔑 비밀번호 변경</button>
       <a href="/admin/logout" class="admin-btn warning-btn">🚪 로그아웃</a>
       <a href="/" class="admin-btn" id="back-btn">💬 챗봇으로</a>
@@ -31,6 +61,12 @@
   </header>
 
   <main class="admin-main">
+    
+    <!-- 카테고리 탭 메뉴 -->
+    <div class="admin-tabs">
+      <button type="button" class="tab-btn active" onclick="switchTab('stats')">📊 챗봇 질문 통계</button>
+      <button type="button" class="tab-btn" onclick="switchTab('qa')">✏️ Q&amp;A 등록 및 관리</button>
+    </div>
 
     <!-- Q&A 추가 카드 -->
     <section class="admin-card" id="qa-add-section">
@@ -113,7 +149,6 @@
     <section class="admin-card" id="stats-section">
       <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
         <h2 class="card-title" style="margin: 0;">📊 챗봇 질문 통계 (최근 3개월)</h2>
-        <a href="/api/logs/download" class="admin-btn confirm-btn" style="background: #2b6cb0; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">📥 질문 기록 엑셀로 받기</a>
       </div>
       <p class="card-desc">사용자들이 기숙사 챗봇에 질문한 내역의 일별 통계입니다.</p>
 
@@ -171,10 +206,32 @@
 
 <script src="/static/chat.js"></script>
 <script>
-// 페이지가 열릴 때 데일리 통계 자동 로드
+// 페이지가 열릴 때 데일리 통계 자동 로드 및 탭 초기화
 document.addEventListener("DOMContentLoaded", () => {
   loadDailyStats();
+  switchTab('stats'); // 기본적으로 질문 통계 탭 활성화
 });
+
+function switchTab(tabId) {
+  // 모든 탭 내용 숨기기
+  document.getElementById("stats-section").style.display = "none";
+  document.getElementById("qa-add-section").style.display = "none";
+  document.getElementById("qa-section").style.display = "none";
+  
+  // 모든 탭 버튼 비활성화
+  const buttons = document.querySelectorAll(".tab-btn");
+  buttons.forEach(btn => btn.classList.remove("active"));
+  
+  // 특정 탭 표시 및 버튼 활성화
+  if (tabId === 'stats') {
+    document.getElementById("stats-section").style.display = "block";
+    buttons[0].classList.add("active");
+  } else if (tabId === 'qa') {
+    document.getElementById("qa-add-section").style.display = "block";
+    document.getElementById("qa-section").style.display = "block";
+    buttons[1].classList.add("active");
+  }
+}
 
 function openPasswordModal() {
   document.getElementById("password-modal").style.display = "flex";
