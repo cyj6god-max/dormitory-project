@@ -276,3 +276,67 @@ async function loadDailyStats() {
     tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: #c53030; padding: 20px;">❌ 네트워크 오류로 통계를 가져오지 못했습니다.</td></tr>`;
   }
 }
+
+// 4. Q&A 엑셀 파일 업로드
+function uploadFile(input) {
+  if (input.files && input.files[0]) doUpload(input.files[0]);
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  document.getElementById("upload-area")?.classList.add("dragover");
+}
+
+function onDragLeave() {
+  document.getElementById("upload-area")?.classList.remove("dragover");
+}
+
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById("upload-area")?.classList.remove("dragover");
+  const files = e.dataTransfer?.files;
+  if (files && files[0]) doUpload(files[0]);
+}
+
+async function doUpload(file) {
+  if (!file.name.match(/\.(xlsx|xls)$/i)) {
+    showUploadResult(false, "엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.");
+    return;
+  }
+  showUploadResult(null, "⏳ 업로드 중...");
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res  = await fetch("/api/qa/upload", { method: "POST", body: formData });
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      showUploadResult(false, `❌ ${data.error}`);
+    } else {
+      showUploadResult(true, `✅ ${data.message}`);
+      setTimeout(() => window.location.reload(), 1500);
+    }
+  } catch {
+    showUploadResult(false, "❌ 네트워크 오류가 발생했습니다.");
+  }
+}
+
+function showUploadResult(success, message) {
+  const div = document.getElementById("upload-result");
+  if (!div) return;
+  div.style.display = "block";
+  
+  if (success === true) {
+    div.style.background = "#f0fff4";
+    div.style.color = "#22543d";
+  } else if (success === false) {
+    div.style.background = "#fff5f5";
+    div.style.color = "#c53030";
+  } else {
+    div.style.background = "#ebf8ff";
+    div.style.color = "#2b6cb0";
+  }
+  
+  div.textContent = message;
+}

@@ -254,6 +254,101 @@ def chat():
     return jsonify({"answer": answer, "references": references, "found": True})
 
 
+@app.route("/api/qa/upload", methods=["POST"])
+def upload_qa_excel():
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "로그인이 필요합니다."}), 401
+        
+    if "file" not in request.files:
+        return jsonify({"error": "파일이 없습니다."}), 400
+
+    file = request.files["file"]
+    if not file.filename or not file.filename.endswith((".xlsx", ".xls")):
+        return jsonify({"error": "엑셀 파일(.xlsx, .xls)만 업로드 가능합니다."}), 400
+
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    save_path = os.path.join(base_dir, EXCEL_FILENAME)
+    temp_path = save_path + ".tmp.xlsx"
+    backup_path = save_path + ".bak"
+
+    # 1) 임시 파일로 저장
+    try:
+        file.save(temp_path)
+    except Exception as e:
+        return jsonify({"error": f"파일 저장 오류: {str(e)}"}), 500
+
+    # 2) 시트 구조 검증
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(temp_path, read_only=True, data_only=True)
+        if "기숙사_운영_데이터" not in wb.sheetnames:
+            wb.close()
+            os.remove(temp_path)
+            return jsonify({"error": "시트 이름이 '기숙사_운영_데이터'인 시트가 존재해야 합니다. (템플릿을 참고하세요)"}), 400
+        wb.close()
+    except Exception as e:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        return jsonify({"error": f"엑셀 읽기 오류: {str(e)}"}), 400
+
+    # 3) 기존 파일 백업 후 교체
+    try:
+        if os.path.exists(save_path):
+            import shutil
+            shutil.copy2(save_path, backup_path)
+        os.replace(temp_path, save_path)
+    except Exception as e:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        return jsonify({"error": f"서버 파일 저장 권한 오류: {str(e)}"}), 500
+
+    # 4) 캐시 갱신
+    try:
+        rag_engine.reload()
+        count = len(rag_engine.get_all_qa())
+        return jsonify({"success": True, "message": f"업로드 완료! 총 {count}개의 Q&A가 반영되었습니다.", "count": count})
+    except Exception as e:
+        return jsonify({"error": f"파일 처리 후 캐시 갱신 실패: {str(e)}"}), 500
+
+@app.route("/api/qa/download", methods=["GET"])
+def download_qa_excel():
+    if not session.get("admin_logged_in"):
+        return redirect(url_for("admin_login"))
+        
+    qa_list = rag_engine.get_all_qa()
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "기숙사_운영_데이터"
+    
+    ws.append(["카테고리", "질문", "답변"])
+    
+    for item in qa_list:
+        ws.append([
+            item.get("category", "기타"),
+            item.get("question", ""),
+            item.get("answer", "")
+        ])
+        
+    for col in ws.columns:
+        max_len = 0
+        for cell in col:
+            val = str(cell.value or '')
+            max_len = max(max_len, len(val))
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 15)
+        
+    excel_stream = io.BytesIO()
+    wb.save(excel_stream)
+    excel_stream.seek(0)
+    
+    return send_file(
+        excel_stream,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name="dormitory_guide_v2.xlsx"
+    )
+
 @app.route("/api/qa/add", methods=["POST"])
 def add_qa():
     if not session.get("admin_logged_in"):
