@@ -340,3 +340,79 @@ function showUploadResult(success, message) {
   
   div.textContent = message;
 }
+
+// 5. Q&A 수정 모달 제어
+function openEditModal(buttonEl) {
+  const category = buttonEl.getAttribute("data-category") || "";
+  const question = buttonEl.getAttribute("data-question") || "";
+  const answer = buttonEl.getAttribute("data-answer") || "";
+
+  document.getElementById("edit-old-question").value = question;
+  document.getElementById("edit-category").value = category;
+  document.getElementById("edit-question").value = question;
+  document.getElementById("edit-answer").value = answer;
+
+  const errDiv = document.getElementById("edit-modal-error");
+  if (errDiv) {
+    errDiv.style.display = "none";
+    errDiv.textContent = "";
+  }
+
+  document.getElementById("edit-qa-modal").style.display = "flex";
+}
+
+function closeEditModal() {
+  document.getElementById("edit-qa-modal").style.display = "none";
+}
+
+async function submitEditQa() {
+  const oldQuestion = document.getElementById("edit-old-question").value.trim();
+  const category = document.getElementById("edit-category").value.trim();
+  const question = document.getElementById("edit-question").value.trim();
+  const answer = document.getElementById("edit-answer").value.trim();
+  const errDiv = document.getElementById("edit-modal-error");
+
+  if (errDiv) {
+    errDiv.style.display = "none";
+    errDiv.textContent = "";
+  }
+
+  if (!category || !question || !answer) {
+    if (errDiv) {
+      errDiv.textContent = "❌ 모든 항목(카테고리, 질문, 답변)을 입력해 주세요.";
+      errDiv.style.display = "block";
+    }
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/qa/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        old_question: oldQuestion,
+        category: category,
+        question: question,
+        answer: answer
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      if (errDiv) {
+        errDiv.textContent = `❌ 오류: ${data.error || "수정 실패"}`;
+        errDiv.style.display = "block";
+      }
+    } else {
+      alert("✅ 수정이 완료되었습니다.");
+      closeEditModal();
+      window.location.reload();
+    }
+  } catch (err) {
+    if (errDiv) {
+      errDiv.textContent = "❌ 네트워크 오류가 발생했습니다.";
+      errDiv.style.display = "block";
+    }
+  }
+}

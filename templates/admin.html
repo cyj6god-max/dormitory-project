@@ -70,23 +70,26 @@
 
     <!-- Q&A 엑셀 파일 관리 카드 -->
     <section class="admin-card" id="qa-excel-section" style="display:none;">
-      <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
         <h2 class="card-title" style="margin: 0;">📂 Q&amp;A 엑셀 파일 관리</h2>
-        <a href="/api/qa/download" class="admin-btn confirm-btn" style="background: #2b6cb0; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">📥 현재 Q&amp;A 엑셀 다운로드 (샘플 겸용)</a>
+        <div style="display: flex; gap: 10px;">
+          <a href="/api/qa/sample" class="admin-btn secondary-btn" style="text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; background: #4a5568; color: white;">📥 샘플 서식 다운로드</a>
+          <a href="/api/qa/download" class="admin-btn confirm-btn" style="background: #2b6cb0; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">📥 현재 Q&amp;A 다운로드</a>
+        </div>
       </div>
-      <p class="card-desc">엑셀 양식을 다운로드하여 수정하거나, 수정한 엑셀 파일을 업로드하여 챗봇 질문 데이터를 일괄 업데이트할 수 있습니다.</p>
+      <p class="card-desc">기존 질문을 백업하거나 수정하려면 <strong>현재 Q&amp;A 다운로드</strong>를, 새로 입력 양식을 작성하려면 <strong>샘플 서식 다운로드</strong>를 클릭하세요. 엑셀을 업로드하면 챗봇 질문 데이터가 일괄 변경됩니다.</p>
       
       <div class="upload-area" id="upload-area" style="border: 2px dashed #cbd5e0; padding: 30px; text-align: center; border-radius: 8px; background: #f8fafc; margin-top: 15px; transition: all 0.2s;"
            ondragover="onDragOver(event)"
            ondrop="onDrop(event)"
            ondragleave="onDragLeave(event)">
-        <div class="upload-icon" style="font-size: 35px; margin-bottom: 10px;">📄</div>
-        <p class="upload-text" style="margin: 5px 0; font-weight: 600; color: #4a5568;">여기에 Q&amp;A 엑셀 파일을 드래그하거나</p>
-        <label class="upload-btn-label" for="file-input" id="upload-label" style="display: inline-block; padding: 8px 18px; background: #4a5568; color: #fff; border-radius: 4px; cursor: pointer; font-weight: 600; margin-top: 5px;">
-          파일 선택
-          <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none" onchange="uploadFile(this)"/>
-        </label>
-        <p class="upload-hint" style="font-size: 12px; color: #a0aec0; margin-top: 8px;">.xlsx / .xls 파일만 가능 · 시트 이름은 '기숙사_운영_데이터' 여야 합니다.</p>
+         <div class="upload-icon" style="font-size: 35px; margin-bottom: 10px;">📄</div>
+         <p class="upload-text" style="margin: 5px 0; font-weight: 600; color: #4a5568;">여기에 Q&amp;A 엑셀 파일을 드래그하거나</p>
+         <label class="upload-btn-label" for="file-input" id="upload-label" style="display: inline-block; padding: 8px 18px; background: #4a5568; color: #fff; border-radius: 4px; cursor: pointer; font-weight: 600; margin-top: 5px;">
+           파일 선택
+           <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none" onchange="uploadFile(this)"/>
+         </label>
+         <p class="upload-hint" style="font-size: 12px; color: #a0aec0; margin-top: 8px;">.xlsx / .xls 파일만 가능 · 첫 번째 시트에 작성된 질문 데이터가 자동으로 등록됩니다.</p>
       </div>
 
       <div class="upload-result" id="upload-result" style="display:none; margin-top: 15px; padding: 10px; border-radius: 6px; font-weight: 500;"></div>
@@ -141,7 +144,7 @@
               <th style="width:110px">카테고리</th>
               <th style="width:30%">질문</th>
               <th>답변</th>
-              <th style="width:80px; text-align:center">관리</th>
+              <th style="width:130px; text-align:center">관리</th>
             </tr>
           </thead>
           <tbody>
@@ -150,12 +153,17 @@
               <td><span class="cat-tag">{{ item.category }}</span></td>
               <td class="qa-question">{{ item.question }}</td>
               <td class="qa-answer">{{ item.answer }}</td>
-              <td style="text-align:center">
-                {% if item.is_custom %}
-                <button type="button" class="admin-btn delete-btn" data-question="{{ item.question }}" style="padding: 4px 8px; font-size: 12px; background: #e53e3e; color: #fff; border: none; border-radius: 4px; cursor: pointer;" onclick="deleteQa(this, {{ loop.index }})">삭제</button>
-                {% else %}
-                <span class="lock-icon" title="기본 제공 데이터(엑셀)는 웹에서 삭제할 수 없습니다." style="cursor: help; opacity: 0.6;">🔒</span>
-                {% endif %}
+              <td style="text-align:center; white-space: nowrap;">
+                <button type="button" class="admin-btn edit-btn" 
+                        data-category="{{ item.category }}" 
+                        data-question="{{ item.question }}" 
+                        data-answer="{{ item.answer }}" 
+                        style="padding: 4px 8px; font-size: 12px; background: #3182ce; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px;" 
+                        onclick="openEditModal(this)">수정</button>
+                <button type="button" class="admin-btn delete-btn" 
+                        data-question="{{ item.question }}" 
+                        style="padding: 4px 8px; font-size: 12px; background: #e53e3e; color: #fff; border: none; border-radius: 4px; cursor: pointer;" 
+                        onclick="deleteQa(this, {{ loop.index }})">삭제</button>
               </td>
             </tr>
             {% endfor %}
@@ -224,6 +232,36 @@
     <div class="modal-footer">
       <button class="modal-btn cancel-btn" onclick="closePasswordModal()">취소</button>
       <button class="modal-btn confirm-btn" onclick="submitPasswordChange()">변경하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- Q&A 수정 모달 팝업 -->
+<div class="modal-overlay" id="edit-qa-modal" style="display: none;">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 class="modal-title">✏️ Q&amp;A 수정</h3>
+      <button class="close-btn" onclick="closeEditModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-old-question" />
+      <div class="form-group">
+        <label for="edit-category" class="form-label">카테고리</label>
+        <input type="text" id="edit-category" class="form-input" placeholder="예: 식당, 생활수칙" style="width: 100%; box-sizing: border-box;" />
+      </div>
+      <div class="form-group">
+        <label for="edit-question" class="form-label">질문</label>
+        <input type="text" id="edit-question" class="form-input" placeholder="질문 입력" style="width: 100%; box-sizing: border-box;" />
+      </div>
+      <div class="form-group">
+        <label for="edit-answer" class="form-label">답변</label>
+        <textarea id="edit-answer" class="form-input" rows="5" placeholder="답변 입력" style="resize: vertical; font-family: inherit; width: 100%; box-sizing: border-box;"></textarea>
+      </div>
+      <div class="modal-error-msg" id="edit-modal-error" style="display: none; padding: 10px; border-radius: 4px; background: #fff5f5; color: #c53030; font-weight: 500; font-size: 14px; margin-top: 10px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn cancel-btn" onclick="closeEditModal()">취소</button>
+      <button class="modal-btn confirm-btn" onclick="submitEditQa()">수정완료</button>
     </div>
   </div>
 </div>

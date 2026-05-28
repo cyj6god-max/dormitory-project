@@ -277,30 +277,91 @@ def upload_qa_excel():
     except Exception as e:
         return jsonify({"error": f"파일 저장 오류: {str(e)}"}), 500
 
-    # 2) 시트 구조 검증
+    # 2) 첫 번째 시트에서 데이터 읽어와 파싱 및 마스터 JSON 저장
     try:
         from openpyxl import load_workbook
         wb = load_workbook(temp_path, read_only=True, data_only=True)
-        if "기숙사_운영_데이터" not in wb.sheetnames:
+        if not wb.sheetnames:
             wb.close()
             os.remove(temp_path)
-            return jsonify({"error": "시트 이름이 '기숙사_운영_데이터'인 시트가 존재해야 합니다. (템플릿을 참고하세요)"}), 400
+            return jsonify({"error": "엑셀 파일에 시트가 존재하지 않습니다."}), 400
+            
+        sheet_name = wb.sheetnames[0]
+        ws = wb[sheet_name]
+        rows = list(ws.iter_rows(values_only=True))
         wb.close()
+        
+        if len(rows) < 2:
+            os.remove(temp_path)
+            return jsonify({"error": "엑셀 파일에 데이터가 없습니다."}), 400
+            
+        # 첫 번째 행은 헤더
+        header = [str(x).strip() if x is not None else "" for x in rows[0]]
+        
+        # 헤더 명칭 매핑 검색
+        col_category = -1
+        col_question = -1
+        col_answer = -1
+        
+        for idx, col_name in enumerate(header):
+            if "카테고리" in col_name or "구분" in col_name:
+                col_category = idx
+            elif "질문" in col_name or "Q" in col_name or "question" in col_name.lower():
+                col_question = idx
+            elif "답변" in col_name or "A" in col_name or "answer" in col_name.lower():
+                col_answer = idx
+                
+        # 기본 인덱스 매핑 (헤더명이 다를 경우 순서대로 A=카테고리, B=질문, C=답변으로 추정)
+        if col_category == -1: col_category = 0
+        if col_question == -1: col_question = 1
+        if col_answer == -1: col_answer = 2
+        
+        excel_data = []
+        for r_idx, row in enumerate(rows[1:], start=2):
+            if not row or len(row) == 0:
+                continue
+            cat = "기타"
+            q = ""
+            a = ""
+            
+            if col_category < len(row) and row[col_category] is not None:
+                cat = str(row[col_category]).strip()
+            if col_question < len(row) and row[col_question] is not None:
+                q = str(row[col_question]).strip()
+            if col_answer < len(row) and row[col_answer] is not None:
+                a = str(row[col_answer]).strip()
+                
+            # 질문과 답변이 둘 다 있을 때만 유효함
+            if q and a:
+                excel_data.append({
+                    "category": cat,
+                    "question": q,
+                    "answer": a,
+                    "is_custom": True
+                })
+                
+        if not excel_data:
+            os.remove(temp_path)
+            return jsonify({"error": "형식에 맞는 Q&A 데이터가 없습니다. 첫 행에 '카테고리', '질문', '답변' 헤더를 확인해 주세요."}), 400
+            
+        # 마스터 JSON에 덮어쓰기 저장
+        rag_engine.save_data(excel_data)
+        
     except Exception as e:
         if os.path.exists(temp_path):
             os.remove(temp_path)
-        return jsonify({"error": f"엑셀 읽기 오류: {str(e)}"}), 400
+        return jsonify({"error": f"엑셀 읽기 및 파싱 오류: {str(e)}"}), 400
 
-    # 3) 기존 파일 백업 후 교체
+    # 3) 업로드된 파일 보관 (다운로드용 백업 파일로 활용)
     try:
         if os.path.exists(save_path):
             import shutil
             shutil.copy2(save_path, backup_path)
         os.replace(temp_path, save_path)
     except Exception as e:
+        print(f"[WARNING] 업로드 엑셀 백업본 저장 실패 (JSON은 정상 저장됨): {e}")
         if os.path.exists(temp_path):
             os.remove(temp_path)
-        return jsonify({"error": f"서버 파일 저장 권한 오류: {str(e)}"}), 500
 
     # 4) 캐시 갱신
     try:
@@ -308,7 +369,38 @@ def upload_qa_excel():
         count = len(rag_engine.get_all_qa())
         return jsonify({"success": True, "message": f"업로드 완료! 총 {count}개의 Q&A가 반영되었습니다.", "count": count})
     except Exception as e:
-        return jsonify({"error": f"파일 처리 후 캐시 갱신 실패: {str(e)}"}), 500
+        return jsonify({"error": f"캐시 갱신 실패: {str(e)}"}), 500
+
+@app.route("/api/qa/sample", methods=["GET"])
+def download_sample_excel():
+    if not session.get("admin_logged_in"):
+        return redirect(url_for("admin_login"))
+        
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Q&A_샘플_서식"
+    
+    ws.append(["카테고리", "질문", "답변"])
+    ws.append(["식당", "오늘 저녁 메뉴는 무엇인가요?", "오늘 저녁은 돈가스입니다. 식당 게시판을 참고해 주세요."])
+    
+    for col in ws.columns:
+        max_len = 0
+        for cell in col:
+            val = str(cell.value or '')
+            max_len = max(max_len, len(val))
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 15)
+        
+    excel_stream = io.BytesIO()
+    wb.save(excel_stream)
+    excel_stream.seek(0)
+    
+    return send_file(
+        excel_stream,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name="dormitory_qa_sample.xlsx"
+    )
 
 @app.route("/api/qa/download", methods=["GET"])
 def download_qa_excel():
@@ -346,7 +438,7 @@ def download_qa_excel():
         excel_stream,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         as_attachment=True,
-        download_name="dormitory_guide_v2.xlsx"
+        download_name="dormitory_current_qa.xlsx"
     )
 
 @app.route("/api/qa/add", methods=["POST"])
@@ -365,11 +457,34 @@ def add_qa():
     if not category or not question or not answer:
         return jsonify({"error": "카테고리, 질문, 답변을 모두 입력해 주세요."}), 400
         
-    success = rag_engine.add_custom_qa(category, question, answer)
+    success = rag_engine.add_qa(category, question, answer)
     if success:
         return jsonify({"success": True, "message": "Q&A가 성공적으로 추가되었습니다."})
     else:
-        return jsonify({"success": True, "message": "Q&A가 추가되었습니다. (임시 환경 저장)"})
+        return jsonify({"error": "Q&A 추가에 실패했습니다."}), 500
+
+@app.route("/api/qa/update", methods=["POST"])
+def update_qa_route():
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "로그인이 필요합니다."}), 401
+        
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "올바르지 않은 요청 데이터입니다."}), 400
+        
+    old_question = data.get("old_question", "").strip()
+    category = data.get("category", "").strip()
+    new_question = data.get("question", "").strip()
+    answer = data.get("answer", "").strip()
+    
+    if not old_question or not category or not new_question or not answer:
+        return jsonify({"error": "모든 항목(카테고리, 질문, 답변)을 입력해 주세요."}), 400
+        
+    success = rag_engine.update_qa(old_question, category, new_question, answer)
+    if success:
+        return jsonify({"success": True, "message": "Q&A가 성공적으로 수정되었습니다."})
+    else:
+        return jsonify({"error": "수정할 Q&A를 찾지 못했거나 수정에 실패했습니다."}), 400
 
 @app.route("/api/qa/delete", methods=["POST"])
 def delete_qa():
@@ -381,12 +496,12 @@ def delete_qa():
         return jsonify({"error": "삭제할 질문을 지정해 주세요."}), 400
         
     question = data["question"].strip()
-    success = rag_engine.delete_custom_qa(question)
+    success = rag_engine.delete_qa(question)
     
     if success:
         return jsonify({"success": True, "message": "Q&A가 성공적으로 삭제되었습니다."})
     else:
-        return jsonify({"error": "삭제할 Q&A를 찾지 못했거나 기본 제공 데이터(엑셀)는 삭제할 수 없습니다."}), 400
+        return jsonify({"error": "삭제할 Q&A를 찾지 못했거나 삭제에 실패했습니다."}), 400
 
 @app.route("/api/logs/daily", methods=["GET"])
 def get_daily_logs():
