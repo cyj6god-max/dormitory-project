@@ -29,7 +29,13 @@ app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 app.config["JSON_AS_ASCII"] = False  # 한국어 JSON 응답 깨짐 방지
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dormitory_secret_key_12345")
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+api_key = os.getenv("OPENAI_API_KEY")
+client = None
+if api_key:
+    try:
+        client = OpenAI(api_key=api_key)
+    except Exception as e:
+        print(f"OpenAI Client 생성 실패: {e}")
 
 EXCEL_FILENAME = "dormitory_guide_v2.xlsx"
 CONFIG_FILE = "admin_config.json"
@@ -172,6 +178,8 @@ def chat():
 위 자료를 바탕으로 질문에 답변해 주세요."""
 
     try:
+        if not client:
+            return jsonify({"error": "OpenAI API 키가 설정되지 않았거나 올바르지 않습니다. 버셀 설정에서 환경 변수를 등록해 주세요."}), 500
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[

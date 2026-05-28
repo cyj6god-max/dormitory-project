@@ -29,7 +29,8 @@ def load_data() -> list[dict]:
     path = _get_excel_path()
 
     if not os.path.exists(path):
-        raise FileNotFoundError(f"엑셀 파일을 찾을 수 없습니다: {path}")
+        print(f"[RAG WARNING] 엑셀 파일을 찾을 수 없습니다: {path}")
+        return []
 
     mtime = os.path.getmtime(path)
     if _cache["data"] is None or _cache["mtime"] != mtime:
