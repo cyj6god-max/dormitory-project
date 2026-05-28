@@ -306,6 +306,15 @@ async function loadDailyStats() {
         "#38b2ac","#fc8181","#63b3ed","#68d391","#f6ad55"
       ];
 
+      // 색상을 어둡게 만드는 헬퍼 (3D 깊이 레이어용)
+      function _darken(hex, factor) {
+        const r = parseInt(hex.slice(1,3),16);
+        const g = parseInt(hex.slice(3,5),16);
+        const b = parseInt(hex.slice(5,7),16);
+        const d = v => Math.round(v * factor).toString(16).padStart(2,"0");
+        return `#${d(r)}${d(g)}${d(b)}`;
+      }
+
       // ── 꺾은선 차트 (일별 추이) ──
       const lineCtx = document.getElementById("lineChart")?.getContext("2d");
       if (lineCtx) {
@@ -341,34 +350,94 @@ async function loadDailyStats() {
         });
       }
 
-      // ── 도넛 차트 (카테고리별) ──
-      const doughCtx = document.getElementById("doughnutChart")?.getContext("2d");
-      if (doughCtx && catList.length > 0) {
-        if (_doughnutChart) _doughnutChart.destroy();
-        _doughnutChart = new Chart(doughCtx, {
-          type: "doughnut",
-          data: {
-            labels: catList.map(c => c.category),
-            datasets: [{
-              data: catList.map(c => c.count),
-              backgroundColor: palette.slice(0, catList.length),
-              borderWidth: 2,
-              borderColor: "#fff",
-              hoverOffset: 6
-            }]
+      // ── ECharts 3D 도넛 차트 (레이어 스태킹 기법) ──
+      const doughDom = document.getElementById("doughnut3DChart");
+      if (doughDom && catList.length > 0) {
+        if (_doughnutChart) { _doughnutChart.dispose(); }
+        _doughnutChart = echarts.init(doughDom);
+
+        const pieData = catList.map((c, i) => ({
+          value: c.count,
+          name: c.category,
+          itemStyle: { color: palette[i % palette.length] }
+        }));
+
+        // 3D 입체감을 위한 다중 레이어 (아래→위 순서)
+        const LAYERS = 10;
+        const BASE_Y  = 56;      // 기준 중심 Y (%)
+        const STEP    = 1.2;     // 레이어 간격 (%)
+        const series  = [];
+
+        // ── 깊이 레이어 (어두운 색으로 두께 표현) ──
+        for (let i = LAYERS; i >= 1; i--) {
+          series.push({
+            type: "pie",
+            radius: ["30%", "56%"],
+            center: ["42%", `${BASE_Y + i * STEP}%`],
+            animation: false,
+            label: { show: false },
+            labelLine: { show: false },
+            emphasis: { disabled: true },
+            itemStyle: { opacity: 0.18 },
+            data: pieData.map(d => ({
+              value: d.value,
+              name: d.name,
+              itemStyle: { color: _darken(d.itemStyle.color, 0.55) }
+            }))
+          });
+        }
+
+        // ── 최상단 메인 파이 (밝은 색 + 그림자) ──
+        series.push({
+          type: "pie",
+          radius: ["30%", "56%"],
+          center: ["42%", `${BASE_Y}%`],
+          itemStyle: {
+            shadowBlur: 20,
+            shadowColor: "rgba(0,0,0,0.25)",
+            shadowOffsetY: 8,
+            borderWidth: 1.5,
+            borderColor: "#fff"
           },
-          options: {
-            responsive: true,
-            cutout: "62%",
-            plugins: {
-              legend: {
-                position: "right",
-                labels: { font: { size: 11 }, boxWidth: 12, padding: 12 }
-              },
-              tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}건` } }
-            }
-          }
+          label: {
+            show: true,
+            position: "outside",
+            formatter: "{b}\n{d}%",
+            fontSize: 11,
+            color: "#4a5568",
+            fontWeight: "600"
+          },
+          labelLine: { smooth: 0.4, length: 8, length2: 6 },
+          emphasis: {
+            itemStyle: { shadowBlur: 30, shadowColor: "rgba(0,0,0,0.35)" },
+            scaleSize: 6
+          },
+          data: pieData
         });
+
+        _doughnutChart.setOption({
+          backgroundColor: "transparent",
+          tooltip: {
+            trigger: "item",
+            formatter: "{b}<br/>질문 수: <b>{c}건</b> ({d}%)",
+            backgroundColor: "rgba(255,255,255,0.95)",
+            borderColor: "#ffd0d6",
+            textStyle: { color: "#4a3a3c", fontSize: 12 }
+          },
+          legend: {
+            orient: "vertical",
+            right: "2%",
+            top: "middle",
+            itemWidth: 10,
+            itemHeight: 10,
+            itemGap: 10,
+            textStyle: { fontSize: 11, color: "#4a5568" }
+          },
+          series
+        });
+
+        // 창 크기 변경 시 차트 리사이즈
+        window.addEventListener("resize", () => _doughnutChart && _doughnutChart.resize());
       }
     }
 
