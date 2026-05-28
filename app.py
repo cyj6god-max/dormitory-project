@@ -26,7 +26,9 @@ import io
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
-load_dotenv()
+# app.py 위치 기준 절대 경로로 .env 로드
+base_dir = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(base_dir, ".env"))
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
