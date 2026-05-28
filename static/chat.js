@@ -202,7 +202,10 @@ async function submitNewQa() {
 }
 
 // 2. Q&A 삭제 (실시간 반영)
-async function deleteQa(questionText, rowIndex) {
+async function deleteQa(buttonEl, rowIndex) {
+  const questionText = buttonEl.getAttribute("data-question");
+  if (!questionText) return;
+  
   if (!confirm(`정말 이 질문을 삭제하시겠습니까?\n\n질문: "${questionText}"`)) {
     return;
   }
