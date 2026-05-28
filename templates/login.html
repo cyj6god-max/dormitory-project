@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>관리자 로그인 — 기숙사 안내 챗봇</title>
-  <meta name="description" content="기숙사 챗봇 관리자 로그인"/>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="/static/style.css"/>
+  <meta name="description" content="기숙사 챗봇 관리자 로그인" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
 </head>
+
 <body class="login-body">
   <div class="login-container">
     <div class="login-card">
@@ -22,7 +25,8 @@
       <form action="/admin/login" method="POST" class="login-form">
         <div class="form-group">
           <label for="password" class="form-label">비밀번호 입력</label>
-          <input type="password" id="password" name="password" class="form-input" placeholder="비밀번호를 입력하세요" required autofocus />
+          <input type="password" id="password" name="password" class="form-input" placeholder="비밀번호를 입력하세요" required
+            autofocus />
         </div>
 
         {% if error %}
@@ -36,7 +40,7 @@
           <a href="#" class="find-password-link" onclick="openFindModal(event)">🔑 비밀번호를 잊으셨나요? (비밀번호 찾기)</a>
         </div>
       </form>
-      
+
       <div class="login-footer">
         <a href="/" class="back-to-chat-link">💬 챗봇 화면으로 돌아가기</a>
       </div>
@@ -69,66 +73,67 @@
   </div>
 
   <script>
-  function openFindModal(e) {
-    e.preventDefault();
-    document.getElementById("find-modal").style.display = "flex";
-    document.getElementById("find-name").value = "";
-    document.getElementById("find-init-pwd").value = "";
-    hideFindMessages();
-  }
-
-  function closeFindModal() {
-    document.getElementById("find-modal").style.display = "none";
-  }
-
-  function hideFindMessages() {
-    const errDiv = document.getElementById("find-error");
-    const succDiv = document.getElementById("find-success");
-    errDiv.style.display = "none";
-    errDiv.textContent = "";
-    succDiv.style.display = "none";
-    succDiv.textContent = "";
-  }
-
-  async function submitPasswordFind() {
-    hideFindMessages();
-    
-    const name = document.getElementById("find-name").value.trim();
-    const initPwd = document.getElementById("find-init-pwd").value.trim();
-    
-    const errDiv = document.getElementById("find-error");
-    const succDiv = document.getElementById("find-success");
-    
-    if (!name || !initPwd) {
-      errDiv.textContent = "관리자 이름과 초기 비밀번호를 모두 입력해 주세요.";
-      errDiv.style.display = "block";
-      return;
+    function openFindModal(e) {
+      e.preventDefault();
+      document.getElementById("find-modal").style.display = "flex";
+      document.getElementById("find-name").value = "";
+      document.getElementById("find-init-pwd").value = "";
+      hideFindMessages();
     }
-    
-    try {
-      const response = await fetch("/admin/find-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name,
-          init_password: initPwd
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        errDiv.textContent = data.error || "관리자 인증에 실패했습니다.";
+
+    function closeFindModal() {
+      document.getElementById("find-modal").style.display = "none";
+    }
+
+    function hideFindMessages() {
+      const errDiv = document.getElementById("find-error");
+      const succDiv = document.getElementById("find-success");
+      errDiv.style.display = "none";
+      errDiv.textContent = "";
+      succDiv.style.display = "none";
+      succDiv.textContent = "";
+    }
+
+    async function submitPasswordFind() {
+      hideFindMessages();
+
+      const name = document.getElementById("find-name").value.trim();
+      const initPwd = document.getElementById("find-init-pwd").value.trim();
+
+      const errDiv = document.getElementById("find-error");
+      const succDiv = document.getElementById("find-success");
+
+      if (!name || !initPwd) {
+        errDiv.textContent = "관리자 이름과 초기 비밀번호를 모두 입력해 주세요.";
         errDiv.style.display = "block";
-      } else {
-        succDiv.innerHTML = `인증에 성공했습니다!<br/>현재 비밀번호: <strong>${data.password}</strong>`;
-        succDiv.style.display = "block";
+        return;
       }
-    } catch (error) {
-      errDiv.textContent = "네트워크 오류가 발생했습니다.";
-      errDiv.style.display = "block";
+
+      try {
+        const response = await fetch("/admin/find-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: name,
+            init_password: initPwd
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          errDiv.textContent = data.error || "관리자 인증에 실패했습니다.";
+          errDiv.style.display = "block";
+        } else {
+          succDiv.innerHTML = `인증에 성공했습니다!<br/>현재 비밀번호: <strong>${data.password}</strong>`;
+          succDiv.style.display = "block";
+        }
+      } catch (error) {
+        errDiv.textContent = "네트워크 오류가 발생했습니다.";
+        errDiv.style.display = "block";
+      }
     }
-  }
   </script>
 </body>
+
 </html>
