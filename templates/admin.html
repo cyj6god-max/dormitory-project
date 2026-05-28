@@ -20,7 +20,7 @@
       <span class="header-icon">⚙️</span>
       <div>
         <h1 class="header-title">관리자 페이지</h1>
-        <p class="header-sub">엑셀 업로드 및 Q&amp;A 목록 관리</p>
+        <p class="header-sub">실시간 Q&amp;A 관리 및 질문 로그 분석</p>
       </div>
     </div>
     <div class="header-actions">
@@ -32,25 +32,38 @@
 
   <main class="admin-main">
 
-    <!-- 업로드 카드 -->
-    <section class="admin-card" id="upload-section">
-      <h2 class="card-title">📂 엑셀 파일 업데이트</h2>
-      <p class="card-desc">새 엑셀 파일을 올리면 챗봇 내용이 즉시 바뀝니다.</p>
-
-      <div class="upload-area" id="upload-area"
-           ondragover="onDragOver(event)"
-           ondrop="onDrop(event)"
-           ondragleave="onDragLeave(event)">
-        <div class="upload-icon">📄</div>
-        <p class="upload-text">여기에 파일을 드래그하거나</p>
-        <label class="upload-btn-label" for="file-input" id="upload-label">
-          파일 선택
-          <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none" onchange="uploadFile(this)"/>
-        </label>
-        <p class="upload-hint">.xlsx / .xls 파일만 · 최대 10MB</p>
+    <!-- Q&A 추가 카드 -->
+    <section class="admin-card" id="qa-add-section">
+      <h2 class="card-title">✏️ Q&amp;A 직접 추가</h2>
+      <p class="card-desc">여기에 입력한 내용은 즉시 챗봇 답변 데이터에 반영됩니다.</p>
+      
+      <div class="add-form">
+        <div class="form-row" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+          <div class="form-group" style="flex: 1; min-width: 150px;">
+            <label for="qa-category" class="form-label" style="display: block; margin-bottom: 5px; font-weight: 500;">카테고리</label>
+            <input type="text" id="qa-category" class="form-input" placeholder="예: 식당, 생활수칙, 외출" list="category-list" style="width: 100%; box-sizing: border-box;" />
+            <datalist id="category-list">
+              <option value="식당"></option>
+              <option value="생활수칙"></option>
+              <option value="입퇴사"></option>
+              <option value="시설안내"></option>
+              <option value="상벌점"></option>
+            </datalist>
+          </div>
+          <div class="form-group" style="flex: 3; min-width: 300px;">
+            <label for="qa-question" class="form-label" style="display: block; margin-bottom: 5px; font-weight: 500;">질문</label>
+            <input type="text" id="qa-question" class="form-input" placeholder="챗봇이 매칭할 예상 질문을 입력하세요." style="width: 100%; box-sizing: border-box;" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="qa-answer" class="form-label" style="display: block; margin-bottom: 5px; font-weight: 500;">답변</label>
+          <textarea id="qa-answer" class="form-input" rows="3" placeholder="질문에 대한 상세한 답변을 입력하세요." style="width: 100%; box-sizing: border-box; resize: vertical; font-family: inherit;"></textarea>
+        </div>
+        <div class="form-actions" style="display: flex; justify-content: flex-end; margin-top: 15px;">
+          <button type="button" class="admin-btn confirm-btn" style="padding: 10px 20px; font-weight: 600; cursor: pointer;" onclick="submitNewQa()">➕ Q&amp;A 추가하기</button>
+        </div>
+        <div class="add-result-msg" id="add-result" style="display:none; margin-top: 10px; padding: 10px; border-radius: 6px; font-weight: 500;"></div>
       </div>
-
-      <div class="upload-result" id="upload-result" style="display:none"></div>
     </section>
 
     <!-- Q&A 목록 카드 -->
@@ -66,8 +79,9 @@
           <thead>
             <tr>
               <th style="width:110px">카테고리</th>
-              <th style="width:32%">질문</th>
+              <th style="width:30%">질문</th>
               <th>답변</th>
+              <th style="width:80px; text-align:center">관리</th>
             </tr>
           </thead>
           <tbody>
@@ -76,6 +90,13 @@
               <td><span class="cat-tag">{{ item.category }}</span></td>
               <td class="qa-question">{{ item.question }}</td>
               <td class="qa-answer">{{ item.answer }}</td>
+              <td style="text-align:center">
+                {% if item.is_custom %}
+                <button type="button" class="admin-btn delete-btn" style="padding: 4px 8px; font-size: 12px; background: #e53e3e; color: #fff; border: none; border-radius: 4px; cursor: pointer;" onclick="deleteQa('{{ item.question | replace("'", "\\'") }}', {{ loop.index }})">삭제</button>
+                {% else %}
+                <span class="lock-icon" title="기본 제공 데이터(엑셀)는 웹에서 삭제할 수 없습니다." style="cursor: help; opacity: 0.6;">🔒</span>
+                {% endif %}
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -85,6 +106,33 @@
           <p>📭 등록된 Q&amp;A가 없습니다. 엑셀 파일을 업로드해 주세요.</p>
         </div>
         {% endif %}
+      </div>
+    </section>
+    
+    <!-- 질문 통계 카드 -->
+    <section class="admin-card" id="stats-section">
+      <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h2 class="card-title" style="margin: 0;">📊 챗봇 질문 통계 (최근 3개월)</h2>
+        <a href="/api/logs/download" class="admin-btn confirm-btn" style="background: #2b6cb0; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">📥 질문 기록 엑셀로 받기</a>
+      </div>
+      <p class="card-desc">사용자들이 기숙사 챗봇에 질문한 내역의 일별 통계입니다.</p>
+
+      <div class="stats-table-wrapper" style="margin-top: 15px; max-height: 250px; overflow-y: auto;">
+        <table class="qa-table" id="stats-table">
+          <thead>
+            <tr>
+              <th style="width: 50%;">날짜</th>
+              <th style="text-align: center;">사용자 질문 건수</th>
+            </tr>
+          </thead>
+          <tbody id="stats-table-body">
+            <tr>
+              <td colspan="2" style="text-align: center; color: #718096; padding: 20px;">
+                🔄 통계 데이터를 불러오는 중...
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -123,6 +171,11 @@
 
 <script src="/static/chat.js"></script>
 <script>
+// 페이지가 열릴 때 데일리 통계 자동 로드
+document.addEventListener("DOMContentLoaded", () => {
+  loadDailyStats();
+});
+
 function openPasswordModal() {
   document.getElementById("password-modal").style.display = "flex";
   document.getElementById("current-password").value = "";

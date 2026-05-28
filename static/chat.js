@@ -132,57 +132,144 @@ function removeLoading(id) {
 }
 
 // ══════════════════════════════════════════════
-// 관리자 페이지 기능
+// 관리자 페이지 기능 (실시간 Q&A 관리 및 로그)
 // ══════════════════════════════════════════════
 
-function uploadFile(input) {
-  if (input.files && input.files[0]) doUpload(input.files[0]);
-}
-
-function onDragOver(e) {
-  e.preventDefault();
-  document.getElementById("upload-area")?.classList.add("dragover");
-}
-
-function onDragLeave() {
-  document.getElementById("upload-area")?.classList.remove("dragover");
-}
-
-function onDrop(e) {
-  e.preventDefault();
-  document.getElementById("upload-area")?.classList.remove("dragover");
-  const files = e.dataTransfer?.files;
-  if (files && files[0]) doUpload(files[0]);
-}
-
-async function doUpload(file) {
-  if (!file.name.match(/\.(xlsx|xls)$/i)) {
-    showUploadResult(false, "엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.");
+// 1. Q&A 직접 추가
+async function submitNewQa() {
+  const catInput = document.getElementById("qa-category");
+  const qInput = document.getElementById("qa-question");
+  const aInput = document.getElementById("qa-answer");
+  const resultDiv = document.getElementById("add-result");
+  
+  if (!catInput || !qInput || !aInput || !resultDiv) return;
+  
+  const category = catInput.value.trim();
+  const question = qInput.value.trim();
+  const answer = aInput.value.trim();
+  
+  resultDiv.style.display = "none";
+  resultDiv.className = "add-result-msg";
+  resultDiv.textContent = "";
+  
+  if (!category || !question || !answer) {
+    resultDiv.style.display = "block";
+    resultDiv.className = "add-result-msg error";
+    resultDiv.style.background = "#fff5f5";
+    resultDiv.style.color = "#c53030";
+    resultDiv.textContent = "❌ 모든 항목(카테고리, 질문, 답변)을 입력해 주세요.";
     return;
   }
-  showUploadResult(null, "⏳ 업로드 중...");
-
-  const formData = new FormData();
-  formData.append("file", file);
-
+  
   try {
-    const res  = await fetch("/api/upload", { method: "POST", body: formData });
+    const res = await fetch("/api/qa/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category, question, answer })
+    });
+    
     const data = await res.json();
+    resultDiv.style.display = "block";
+    
     if (!res.ok || data.error) {
-      showUploadResult(false, `❌ ${data.error}`);
+      resultDiv.className = "add-result-msg error";
+      resultDiv.style.background = "#fff5f5";
+      resultDiv.style.color = "#c53030";
+      resultDiv.textContent = `❌ 오류: ${data.error || "추가 실패"}`;
     } else {
-      showUploadResult(true, `✅ ${data.message}`);
-      setTimeout(() => window.location.reload(), 1500);
+      resultDiv.className = "add-result-msg success";
+      resultDiv.style.background = "#f0fff4";
+      resultDiv.style.color = "#22543d";
+      resultDiv.textContent = `✅ ${data.message}`;
+      
+      // 폼 비우기
+      catInput.value = "";
+      qInput.value = "";
+      aInput.value = "";
+      
+      // 1.5초 후 목록 갱신
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     }
-  } catch {
-    showUploadResult(false, "❌ 네트워크 오류가 발생했습니다.");
+  } catch (err) {
+    resultDiv.style.display = "block";
+    resultDiv.className = "add-result-msg error";
+    resultDiv.style.background = "#fff5f5";
+    resultDiv.style.color = "#c53030";
+    resultDiv.textContent = "❌ 네트워크 오류가 발생했습니다.";
   }
 }
 
-function showUploadResult(success, message) {
-  const div = document.getElementById("upload-result");
-  if (!div) return;
-  div.style.display = "block";
-  div.className = "upload-result" + (success === true ? " success" : success === false ? " error" : "");
-  div.textContent = message;
+// 2. Q&A 삭제 (실시간 반영)
+async function deleteQa(questionText, rowIndex) {
+  if (!confirm(`정말 이 질문을 삭제하시겠습니까?\n\n질문: "${questionText}"`)) {
+    return;
+  }
+  
+  try {
+    const res = await fetch("/api/qa/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: questionText })
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok || data.error) {
+      alert(`❌ 삭제 실패: ${data.error || "오류 발생"}`);
+    } else {
+      // 1) 화면에서 해당 행 삭제
+      const row = document.getElementById(`qa-row-${rowIndex}`);
+      if (row) row.remove();
+      
+      // 2) 총 개수 뱃지 숫자 갱신
+      const totalBadge = document.getElementById("total-badge");
+      if (totalBadge) {
+        const currentCount = parseInt(totalBadge.textContent.replace(/[^0-9]/g, "")) || 0;
+        if (currentCount > 0) {
+          totalBadge.textContent = `총 ${currentCount - 1}개`;
+        }
+      }
+      
+      alert("✅ 삭제가 완료되었습니다.");
+    }
+  } catch (err) {
+    alert("❌ 네트워크 오류로 인해 삭제에 실패했습니다.");
+  }
+}
+
+// 3. 질문 일별 통계 로드
+async function loadDailyStats() {
+  const tableBody = document.getElementById("stats-table-body");
+  if (!tableBody) return;
+  
+  try {
+    const res = await fetch("/api/logs/daily");
+    const data = await res.json();
+    
+    if (!res.ok || !data.success) {
+      tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: #c53030; padding: 20px;">❌ 데이터를 불러오지 못했습니다.</td></tr>`;
+      return;
+    }
+    
+    const statsList = data.data || [];
+    if (statsList.length === 0) {
+      tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: #718096; padding: 20px;">📭 최근 3개월간 기록된 질문 내역이 없습니다.</td></tr>`;
+      return;
+    }
+    
+    let html = "";
+    statsList.forEach(item => {
+      html += `
+        <tr>
+          <td style="font-weight: 500; color: #2d3748;">📅 ${item.date}</td>
+          <td style="text-align: center; font-weight: bold; color: #2b6cb0;">${item.count} 회</td>
+        </tr>
+      `;
+    });
+    tableBody.innerHTML = html;
+  } catch (err) {
+    tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: #c53030; padding: 20px;">❌ 네트워크 오류로 통계를 가져오지 못했습니다.</td></tr>`;
+  }
 }

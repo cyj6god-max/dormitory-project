@@ -16,11 +16,14 @@ except Exception:
     pass
 os.environ.setdefault('PYTHONUTF8', '1')
 
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for, send_file
 from dotenv import load_dotenv
 from openai import OpenAI
 import rag_engine
 import json
+from datetime import datetime, timedelta
+import io
+from openpyxl import Workbook
 
 load_dotenv()
 
@@ -39,6 +42,54 @@ if api_key:
 
 EXCEL_FILENAME = "dormitory_guide_v2.xlsx"
 CONFIG_FILE = "admin_config.json"
+LOGS_FILE = "chat_logs.json"
+
+def _get_logs_path():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_dir, LOGS_FILE)
+
+def load_logs() -> list:
+    path = _get_logs_path()
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"로그 로드 오류: {e}")
+        return []
+
+def save_logs(logs):
+    path = _get_logs_path()
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(logs, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"로그 저장 실패 (Vercel 환경일 수 있음): {e}")
+
+def write_chat_log(query, answer, found):
+    logs = load_logs()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    logs.append({
+        "timestamp": now_str,
+        "query": query.strip(),
+        "answer": answer.strip(),
+        "found": found
+    })
+    
+    # 3개월(90일) 보관 기간 필터링
+    limit_date = datetime.now() - timedelta(days=90)
+    filtered_logs = []
+    for log in logs:
+        try:
+            log_time = datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S")
+            if log_time >= limit_date:
+                filtered_logs.append(log)
+        except Exception:
+            filtered_logs.append(log)
+            
+    save_logs(filtered_logs)
 
 def get_admin_password():
     if not os.path.exists(CONFIG_FILE):
@@ -151,8 +202,10 @@ def chat():
 
     # 2) 관련 내용이 없으면 자료 없음 안내
     if not results:
+        no_ref_answer = "적절한 답변을 찾지 못했습니다. 관리자에게 문의해 주세요. (소통폰 : 010-2629-8002)"
+        write_chat_log(user_message, no_ref_answer, False)
         return jsonify({
-            "answer": "적절한 답변을 찾지 못했습니다. 관리자에게 문의해 주세요. (소통폰 : 010-2629-8002)",
+            "answer": no_ref_answer,
             "references": [],
             "found": False,
         })
@@ -194,61 +247,111 @@ def chat():
         return jsonify({"error": f"AI 서버 오류: {str(e)}"}), 500
 
     references = [{"category": r["category"], "question": r["question"]} for r in results]
+    write_chat_log(user_message, answer, True)
     return jsonify({"answer": answer, "references": references, "found": True})
 
 
-@app.route("/api/upload", methods=["POST"])
-def upload_excel():
-    if "file" not in request.files:
-        return jsonify({"error": "파일이 없습니다."}), 400
+@app.route("/api/qa/add", methods=["POST"])
+def add_qa():
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "로그인이 필요합니다."}), 401
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "올바르지 않은 요청 데이터입니다."}), 400
+        
+    category = data.get("category", "").strip()
+    question = data.get("question", "").strip()
+    answer = data.get("answer", "").strip()
+    
+    if not category or not question or not answer:
+        return jsonify({"error": "카테고리, 질문, 답변을 모두 입력해 주세요."}), 400
+        
+    success = rag_engine.add_custom_qa(category, question, answer)
+    if success:
+        return jsonify({"success": True, "message": "Q&A가 성공적으로 추가되었습니다."})
+    else:
+        return jsonify({"success": True, "message": "Q&A가 추가되었습니다. (임시 환경 저장)"})
 
-    file = request.files["file"]
-    if not file.filename or not file.filename.endswith((".xlsx", ".xls")):
-        return jsonify({"error": "엑셀 파일(.xlsx, .xls)만 업로드 가능합니다."}), 400
+@app.route("/api/qa/delete", methods=["POST"])
+def delete_qa():
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "로그인이 필요합니다."}), 401
+        
+    data = request.get_json()
+    if not data or not data.get("question", "").strip():
+        return jsonify({"error": "삭제할 질문을 지정해 주세요."}), 400
+        
+    question = data["question"].strip()
+    success = rag_engine.delete_custom_qa(question)
+    
+    if success:
+        return jsonify({"success": True, "message": "Q&A가 성공적으로 삭제되었습니다."})
+    else:
+        return jsonify({"error": "삭제할 Q&A를 찾지 못했거나 기본 제공 데이터(엑셀)는 삭제할 수 없습니다."}), 400
 
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    save_path = os.path.join(base_dir, EXCEL_FILENAME)
-    temp_path = save_path + ".tmp.xlsx"
-    backup_path = save_path + ".bak"
+@app.route("/api/logs/daily", methods=["GET"])
+def get_daily_logs():
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "로그인이 필요합니다."}), 401
+        
+    logs = load_logs()
+    
+    daily_counts = {}
+    for log in logs:
+        try:
+            date_str = log["timestamp"].split(" ")[0]
+            daily_counts[date_str] = daily_counts.get(date_str, 0) + 1
+        except Exception:
+            continue
+            
+    sorted_daily = []
+    for d in sorted(daily_counts.keys(), reverse=True):
+        sorted_daily.append({"date": d, "count": daily_counts[d]})
+        
+    return jsonify({"success": True, "data": sorted_daily})
 
-    # 1) 임시 파일로 먼저 저장
-    try:
-        file.save(temp_path)
-    except PermissionError:
-        return jsonify({"error": "저장 권한 오류입니다. 엑셀이 다른 프로그램에 열려 있다면 닫고 다시 시도해 주세요."}), 500
-    except Exception as e:
-        return jsonify({"error": f"파일 저장 오류: {str(e)}"}), 500
-
-    # 2) 임시 파일의 엑셀 구조가 올바른지 확인
-    try:
-        from openpyxl import load_workbook
-        wb = load_workbook(temp_path, read_only=True, data_only=True)
-        ws = wb["기숙사_운영_데이터"]
-        wb.close()
-    except Exception as e:
-        os.remove(temp_path)
-        return jsonify({"error": f"엑셀 파일 형식 오류: 시트 이름이 '기숙사_운영_데이터'인지 확인해 주세요. ({str(e)})"}), 400
-
-    # 3) 기존 파일 백업 후 원자적 교체
-    try:
-        if os.path.exists(save_path):
-            shutil.copy2(save_path, backup_path)
-        os.replace(temp_path, save_path)
-    except PermissionError:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-        return jsonify({"error": "기존 파일 교체에 실패했습니다. 엑셀 프로그램을 닫고 다시 시도해 주세요."}), 500
-
-    # 4) 캐시 갱신
-    try:
-        rag_engine.reload()
-        count = len(rag_engine.get_all_qa())
-        return jsonify({"success": True, "message": f"업로드 완료! 총 {count}개의 Q&A가 로드되었습니다.", "count": count})
-    except Exception as e:
-        if os.path.exists(backup_path):
-            shutil.copy2(backup_path, save_path)
-            rag_engine.reload()
-        return jsonify({"error": f"파일 처리 오류: {str(e)}"}), 500
+@app.route("/api/logs/download", methods=["GET"])
+def download_logs_excel():
+    if not session.get("admin_logged_in"):
+        return redirect(url_for("admin_login"))
+        
+    logs = load_logs()
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "질문 내역 로그"
+    
+    headers = ["질문 일시", "사용자 질문", "챗봇 답변", "자료 매칭 여부"]
+    ws.append(headers)
+    
+    for log in reversed(logs):
+        ws.append([
+            log.get("timestamp", ""),
+            log.get("query", ""),
+            log.get("answer", ""),
+            "예" if log.get("found", False) else "아니오"
+        ])
+        
+    for col in ws.columns:
+        max_len = 0
+        for cell in col:
+            # None 방지 및 한글/영문 길이 보정
+            val = str(cell.value or '')
+            max_len = max(max_len, len(val))
+        col_letter = col[0].column_letter
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+        
+    excel_stream = io.BytesIO()
+    wb.save(excel_stream)
+    excel_stream.seek(0)
+    
+    return send_file(
+        excel_stream,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name="chat_history_logs.xlsx"
+    )
 
 
 
