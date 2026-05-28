@@ -93,16 +93,33 @@ function appendMessage(role, text, references, isError) {
   const bubble = document.createElement("div");
   bubble.className = "message-bubble" + (isError ? " error-bubble" : "");
 
+  let cleanText = text;
+  let tagsHTML = "";
+
+  // 태그 파싱 (예: "태그: #생활수칙 #벌점")
+  const tagRegex = /태그\s*:\s*(#[^\n\r]+)/i;
+  const match = text.match(tagRegex);
+  if (match) {
+    cleanText = text.replace(tagRegex, "").trim();
+    const tagsStr = match[1];
+    const tagsList = tagsStr.split(/\s+/).filter(t => t.startsWith("#"));
+    
+    tagsHTML = `<div class="msg-tags">`;
+    tagsList.forEach(tag => {
+      tagsHTML += `<span class="tag-chip">${tag}</span>`;
+    });
+    tagsHTML += `</div>`;
+  }
+
   // **굵게** 마크다운 변환 + 줄바꿈 처리
-  const html = text
+  const html = cleanText
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\n/g, "<br/>");
 
-  bubble.innerHTML = `<p>${html}</p>`;
+  bubble.innerHTML = `<p>${html}</p>${tagsHTML}`;
 
   wrapper.appendChild(avatar);
-
   wrapper.appendChild(bubble);
   container.appendChild(wrapper);
   container.scrollTop = container.scrollHeight;

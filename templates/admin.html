@@ -271,10 +271,15 @@
 // 페이지가 열릴 때 데일리 통계 자동 로드 및 탭 초기화
 document.addEventListener("DOMContentLoaded", () => {
   loadDailyStats();
-  switchTab('stats'); // 기본적으로 질문 통계 탭 활성화
+  // 저장된 활성 탭이 있으면 로드, 없으면 기본값인 'stats'
+  const savedTab = localStorage.getItem("adminActiveTab") || "stats";
+  switchTab(savedTab);
 });
 
 function switchTab(tabId) {
+  // 브라우저 저장소에 선택된 탭 저장
+  localStorage.setItem("adminActiveTab", tabId);
+
   // 모든 탭 내용 숨기기
   document.getElementById("stats-section").style.display = "none";
   document.getElementById("qa-excel-section").style.display = "none";
@@ -288,12 +293,12 @@ function switchTab(tabId) {
   // 특정 탭 표시 및 버튼 활성화
   if (tabId === 'stats') {
     document.getElementById("stats-section").style.display = "block";
-    buttons[0].classList.add("active");
+    if (buttons[0]) buttons[0].classList.add("active");
   } else if (tabId === 'qa') {
     document.getElementById("qa-excel-section").style.display = "block";
     document.getElementById("qa-add-section").style.display = "block";
     document.getElementById("qa-section").style.display = "block";
-    buttons[1].classList.add("active");
+    if (buttons[1]) buttons[1].classList.add("active");
   }
 }
 

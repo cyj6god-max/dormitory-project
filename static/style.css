@@ -839,4 +839,37 @@ body:not(.admin-body) {
   color: var(--accent);
 }
 
+/* ──────────────────────────────────────────
+   연관 키워드 태그 칩 스타일
+   ────────────────────────────────────────── */
+.msg-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+
+.tag-chip {
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--accent-dim);
+  border: 1px solid rgba(255, 116, 140, 0.15);
+  color: var(--accent);
+  padding: 3px 10px;
+  border-radius: 20px;
+  transition: all var(--t);
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tag-chip:hover {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
 
