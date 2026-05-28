@@ -15,6 +15,16 @@
 
 <body>
 
+  <!-- 2초 스플래시 시작 화면 (이미지 준비용 폴백 포함) -->
+  <div id="splash-screen" class="splash-screen">
+    <div class="splash-fallback" id="splash-fallback">
+      <span class="splash-logo">🏢</span>
+      <h2 class="splash-title">온기 가득, TSP총괄 기숙사</h2>
+      <p class="splash-loading">잠시만 기다려 주세요...</p>
+    </div>
+    <img src="/static/splash.png" alt="Splash" class="splash-img" id="splash-img" style="display: none;" onload="showSplashImage()" onerror="showSplashFallback()" />
+  </div>
+
   <div class="chat-wrap">
 
     <!-- 상단 헤더 -->
@@ -71,6 +81,26 @@
   </div>
 
   <script src="/static/chat.js"></script>
+  <script>
+    function showSplashImage() {
+      document.getElementById("splash-img").style.display = "block";
+      document.getElementById("splash-fallback").style.display = "none";
+    }
+    function showSplashFallback() {
+      document.getElementById("splash-img").style.display = "none";
+      document.getElementById("splash-fallback").style.display = "block";
+    }
+    // 2초 후 스플래시 화면 부드럽게 사라짐
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(() => {
+        const splash = document.getElementById("splash-screen");
+        if (splash) {
+          splash.classList.add("fade-out");
+          setTimeout(() => splash.remove(), 500); // 페이드아웃 애니메이션 완료 후 DOM에서 삭제
+        }
+      }, 2000);
+    });
+  </script>
 </body>
 
 </html>
