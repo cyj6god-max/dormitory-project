@@ -7,10 +7,13 @@ import os
 import shutil
 
 # Windows 콘솔 인코딩 강제 UTF-8 설정
-if hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(encoding='utf-8')
-if hasattr(sys.stderr, 'reconfigure'):
-    sys.stderr.reconfigure(encoding='utf-8')
+try:
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
+    if hasattr(sys.stderr, 'reconfigure'):
+        sys.stderr.reconfigure(encoding='utf-8')
+except Exception:
+    pass
 os.environ.setdefault('PYTHONUTF8', '1')
 
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for
@@ -33,8 +36,6 @@ CONFIG_FILE = "admin_config.json"
 
 def get_admin_password():
     if not os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump({"password": "8002"}, f)
         return "8002"
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
