@@ -274,14 +274,30 @@ async function loadDailyStats() {
   const endInput = document.getElementById("stats-end-date");
   
   if (startInput && endInput) {
+    const today = new Date();
+    // 로컬 시간대를 기준으로 오늘 날짜 구하기 (KST 반영)
+    const offset = today.getTimezoneOffset() * 60000;
+    const todayStr = new Date(today.getTime() - offset).toISOString().split('T')[0];
+    
+    // 3개월 전 날짜 계산
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(today.getMonth() - 3);
+    const minDateStr = new Date(threeMonthsAgo.getTime() - offset).toISOString().split('T')[0];
+    
+    // 달력 날짜 선택 제한 (최대 오늘, 최소 3개월 전)
+    startInput.min = minDateStr;
+    startInput.max = todayStr;
+    endInput.min = minDateStr;
+    endInput.max = todayStr;
+    
     // 값이 없을 경우 기본값으로 최근 30일 설정
     if (!startInput.value || !endInput.value) {
-      const today = new Date();
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(today.getDate() - 30);
+      const thirtyDaysAgoStr = new Date(thirtyDaysAgo.getTime() - offset).toISOString().split('T')[0];
       
-      startInput.value = thirtyDaysAgo.toISOString().split('T')[0];
-      endInput.value = today.toISOString().split('T')[0];
+      startInput.value = thirtyDaysAgoStr;
+      endInput.value = todayStr;
     }
   }
   
